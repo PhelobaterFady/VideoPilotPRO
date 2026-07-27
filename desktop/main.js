@@ -1,16 +1,14 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+
+// Directly start embedded Express backend server inside Electron process
+try {
+  require('../server/index.js');
+} catch (err) {
+  console.error('Failed to start embedded backend server:', err);
+}
 
 let mainWindow;
-let serverProcess;
-
-function startServer() {
-  const serverPath = path.join(__dirname, '..', 'server', 'index.js');
-  serverProcess = spawn('node', [serverPath], {
-    stdio: 'inherit'
-  });
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -33,7 +31,8 @@ function createWindow() {
   const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
   
   const loadApp = () => {
-    mainWindow.loadURL(startUrl).catch(() => {
+    mainWindow.loadURL(startUrl).catch((err) => {
+      console.warn('Loading app retry...', err.message);
       setTimeout(loadApp, 500);
     });
   };
@@ -68,7 +67,6 @@ ipcMain.handle('select-folder', async () => {
 });
 
 app.whenReady().then(() => {
-  startServer();
   createWindow();
 
   app.on('activate', () => {
@@ -77,6 +75,5 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (serverProcess) serverProcess.kill();
   if (process.platform !== 'darwin') app.quit();
 });
