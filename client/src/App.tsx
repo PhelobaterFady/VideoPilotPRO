@@ -23,7 +23,9 @@ export function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [downloadQueue, setDownloadQueue] = useState<DownloadQueueItem[]>([]);
+  
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<{ checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null>(null);
 
   const [downloadPath, setDownloadPath] = useState<string>(() => {
     return localStorage.getItem('videopilot_download_path') || '';
@@ -42,34 +44,46 @@ export function App() {
     localStorage.setItem('videopilot_download_path', downloadPath);
   }, [downloadPath]);
 
-  // Version Check
-  useEffect(() => {
-    const checkVersion = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/version`);
-        const json = await res.json();
-        if (json && json.latestVersion && json.latestVersion !== CURRENT_VERSION) {
+  const checkVersionRealtime = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/version`);
+      const json = await res.json();
+      if (json && json.latestVersion) {
+        const isNewer = json.latestVersion !== CURRENT_VERSION;
+        setUpdateStatus({
+          checked: true,
+          isLatest: !isNewer,
+          latestVersion: json.latestVersion,
+          downloadUrl: json.downloadUrl
+        });
+
+        if (isNewer) {
           setUpdateInfo({
             available: true,
             version: json.latestVersion,
             url: json.downloadUrl
           });
         }
-      } catch (e) {
-        // Silently ignore version check error
       }
-    };
+    } catch (e) {
+      setUpdateStatus({ checked: true, isLatest: true, latestVersion: CURRENT_VERSION });
+    }
+  };
 
-    checkVersion();
+  // Version Check on mount
+  useEffect(() => {
+    checkVersionRealtime();
 
     if ((window as any).require) {
       try {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.on('update-available', (_: any, info: any) => {
           setUpdateInfo({ available: true, version: info?.version });
+          setUpdateStatus({ checked: true, isLatest: false, latestVersion: info?.version });
         });
         ipcRenderer.on('update-ready', (_: any, info: any) => {
           setUpdateInfo({ available: true, version: info?.version, url: 'ready' });
+          setUpdateStatus({ checked: true, isLatest: false, latestVersion: info?.version });
         });
       } catch (e) {
         // IPC listener fallback
@@ -242,7 +256,6 @@ export function App() {
             item.data.thumbnail || ''
           );
         } else {
-          // Fallback trigger so NO URL is ever dropped or lost!
           triggerSingleDownload(
             url,
             'best',
@@ -353,9 +366,18 @@ export function App() {
                   <h2 className="text-lg font-bold text-white">Direct Downloader</h2>
                   <p className="text-xs text-zinc-400">Paste media URL from YouTube, TikTok, Instagram, Facebook, or X</p>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-emerald-400 border border-zinc-700">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Protected Engine v{CURRENT_VERSION}</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={checkVersionRealtime}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-zinc-700 transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3 text-emerald-400" />
+                    <span>Check Updates</span>
+                  </button>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-emerald-400 border border-zinc-700">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Engine v{CURRENT_VERSION}</span>
+                  </div>
                 </div>
               </div>
 
@@ -411,6 +433,9 @@ export function App() {
             <SettingsView
               downloadPath={downloadPath}
               onChangePath={handleSelectFolder}
+              currentVersion={CURRENT_VERSION}
+              onCheckUpdate={checkVersionRealtime}
+              updateStatus={updateStatus}
             />
           )}
         </main>
