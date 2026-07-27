@@ -21,20 +21,32 @@
       "output": "dist_installer"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
       "sign": null,
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "VideoPilot Pro",
       "differentialPackage": true,
       "packElevateHelper": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "PhelobaterFady",
+        "repo": "VideoPilotPRO"
+      }
+    ]
   },
   "dependencies": {
     "concurrently": "^8.2.2",
