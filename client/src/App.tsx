@@ -127,63 +127,22 @@ export function App() {
     }
   };
 
-  const handleAnalyzeBatch = async (urls: string[]) => {
-    if (!downloadPath || downloadPath.trim() === '') {
-      setErrorMessage('⚠️ Save location is not set! Please configure your download folder in Settings & Storage first.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/batch-info`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-app-secret': APP_SECRET
-        },
-        body: JSON.stringify({ urls })
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Batch analysis failed.');
-      }
-
-      json.items.forEach((item: any) => {
-        if (item.success && item.data) {
-          triggerSingleDownload(
-            item.data.webpage_url || item.url,
-            'best',
-            false,
-            item.data.title,
-            item.data.platform
-          );
-        }
-      });
-
-      setActiveTab('downloader');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error processing batch links.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const triggerSingleDownload = async (
     url: string,
     format: string,
     isAudio: boolean,
     title: string,
-    platform = currentMedia?.platform || 'unknown'
+    platform = currentMedia?.platform || 'unknown',
+    customThumbnail?: string
   ) => {
     if (!downloadPath || downloadPath.trim() === '') {
       setErrorMessage('⚠️ Save location is not set! Please configure your download folder in Settings & Storage first.');
       return;
     }
 
+    const itemThumbnail = customThumbnail || (currentMedia && currentMedia.webpage_url === url ? currentMedia.thumbnail : '') || customThumbnail || '';
     const queueId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
     const newQueueItem: DownloadQueueItem = {
       id: queueId,
       title,
@@ -196,7 +155,7 @@ export function App() {
       speed: 'Downloading...',
       eta: '--:--',
       status: 'downloading',
-      thumbnail: currentMedia?.thumbnail,
+      thumbnail: itemThumbnail,
       outputDir: downloadPath
     };
 
@@ -235,7 +194,7 @@ export function App() {
         type: isAudio ? 'audio' : 'video',
         downloadDate: new Date().toISOString(),
         format: isAudio ? 'MP3' : 'MP4',
-        thumbnail: currentMedia?.thumbnail || ''
+        thumbnail: itemThumbnail
       };
 
       setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
@@ -247,13 +206,65 @@ export function App() {
     }
   };
 
+  const handleAnalyzeBatch = async (urls: string[]) => {
+    if (!downloadPath || downloadPath.trim() === '') {
+      setErrorMessage('⚠️ Save location is not set! Please configure your download folder in Settings & Storage first.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/batch-info`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ urls })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Batch analysis failed.');
+      }
+
+      json.items.forEach((item: any) => {
+        if (item.success && item.data) {
+          triggerSingleDownload(
+            item.data.webpage_url || item.url,
+            'best',
+            false,
+            item.data.title,
+            item.data.platform || 'unknown',
+            item.data.thumbnail || '' // Pass individual video's thumbnail!
+          );
+        }
+      });
+
+      setActiveTab('downloader');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error processing batch links.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBatchPlaylistDownload = (items: PlaylistItem[], isAudio: boolean, format: string) => {
     if (!downloadPath || downloadPath.trim() === '') {
       setErrorMessage('⚠️ Save location is not set! Please configure your download folder in Settings & Storage first.');
       return;
     }
     items.forEach(item => {
-      triggerSingleDownload(item.url, format, isAudio, item.title, currentMedia?.platform || 'youtube');
+      triggerSingleDownload(
+        item.url,
+        format,
+        isAudio,
+        item.title,
+        currentMedia?.platform || 'youtube',
+        item.thumbnail // Pass playlist item's thumbnail!
+      );
     });
   };
 
