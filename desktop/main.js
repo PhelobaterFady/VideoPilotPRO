@@ -8,6 +8,7 @@ try {
   autoUpdater = updaterModule.autoUpdater;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.forceDevUpdateConfig = true; // Guarantees updater operates in all environments
 } catch (e) {
   console.warn('electron-updater not available:', e.message);
 }
@@ -69,10 +70,12 @@ function createWindow() {
 
 if (autoUpdater) {
   autoUpdater.on('update-available', (info) => {
+    console.log('Update available event:', info);
     mainWindow?.webContents.send('update-available', info);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded event:', info);
     mainWindow?.webContents.send('update-ready', info);
   });
 }
@@ -84,7 +87,7 @@ ipcMain.on('check-for-updates', async () => {
       mainWindow?.webContents.send('update-check-result', {
         checked: true,
         available: !!result,
-        version: result?.updateInfo?.version || '1.1.0'
+        version: result?.updateInfo?.version || '1.2.0'
       });
     } catch (err) {
       mainWindow?.webContents.send('update-check-result', { checked: true, available: false, error: err.message });

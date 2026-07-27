@@ -1,0 +1,4 @@
+provider: github
+owner: PhelobaterFady
+repo: VideoPilotPRO
+updaterCacheDirName: videopilot-pro-updater
