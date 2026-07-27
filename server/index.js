@@ -123,6 +123,14 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 VideoPilot Pro Engine running on http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`Port ${PORT} is already in use, reusing active server instance`);
+  } else {
+    console.error('Express server error:', err);
+  }
 });

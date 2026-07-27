@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const fs = require('fs');
 
 let autoUpdater = null;
 try {
@@ -36,21 +35,29 @@ function createWindow() {
       contextIsolation: false,
       webSecurity: false
     },
-    backgroundColor: '#050505'
+    backgroundColor: '#050505',
+    show: false // Don't show window until content is loaded to eliminate black flashes
   });
 
   const localIndexPath = path.join(__dirname, '../client/dist/index.html');
 
-  if (fs.existsSync(localIndexPath)) {
-    console.log('Loading local HTML file:', localIndexPath);
-    mainWindow.loadFile(localIndexPath);
-  } else {
+  // Direct load file natively from ASAR without fragile fs checks
+  mainWindow.loadFile(localIndexPath).then(() => {
+    mainWindow.show();
+  }).catch((err) => {
+    console.warn('loadFile failed, trying dev server URL fallback:', err.message);
     const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
-    console.log('Loading fallback URL:', startUrl);
-    mainWindow.loadURL(startUrl).catch((err) => {
-      console.warn('Loading fallback URL failed:', err.message);
+    mainWindow.loadURL(startUrl).then(() => {
+      mainWindow.show();
+    }).catch((urlErr) => {
+      console.error('loadURL fallback failed:', urlErr.message);
+      mainWindow.show();
     });
-  }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load page:', errorCode, errorDescription);
+  });
 
   // Check for updates 5 seconds after launch
   if (autoUpdater) {
