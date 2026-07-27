@@ -12,7 +12,7 @@ try {
   console.warn('electron-updater not available:', e.message);
 }
 
-// Embedded Express backend server
+// Embedded Express backend server safely initialized
 try {
   require('../server/index.js');
 } catch (err) {
@@ -40,53 +40,18 @@ function createWindow() {
     show: true
   });
 
-  // Official Electron API for absolute app root path resolution
-  const appRoot = app.getAppPath();
-  const indexHtmlPath = path.join(appRoot, 'client', 'dist', 'index.html');
+  const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
+  const relativeHtmlPath = path.join(__dirname, '..', 'client', 'dist', 'index.html');
 
-  console.log('App Root:', appRoot);
-  console.log('Target HTML Path:', indexHtmlPath);
-
-  const loadApp = () => {
-    if (fs.existsSync(indexHtmlPath)) {
-      mainWindow.loadFile(indexHtmlPath).catch((err) => {
-        console.error('loadFile error:', err);
-        fallbackToUrl();
-      });
-    } else {
-      fallbackToUrl();
-    }
-  };
-
-  const fallbackToUrl = () => {
-    const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
-    mainWindow.loadURL(startUrl).catch((err) => {
-      console.error('loadURL fallback error:', err);
-      // Fallback HTML string so black screen NEVER happens
-      const errorHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { background: #09090b; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            h2 { color: #10b981; margin-bottom: 8px; }
-            p { color: #a1a1aa; font-size: 14px; }
-            button { background: #10b981; color: #000; border: none; padding: 10px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 16px; }
-            button:hover { background: #34d399; }
-          </style>
-        </head>
-        <body>
-          <h2>VideoPilot Pro Engine Loading...</h2>
-          <p>Initializing desktop interface and server connection.</p>
-          <button onclick="location.reload()">Reload Application</button>
-        </body>
-        </html>
-      `;
-      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
+  // Direct load without fragile fs.existsSync checks that fail inside ASAR archives
+  mainWindow.loadFile(appRootHtmlPath).catch((err) => {
+    console.warn('appRootHtmlPath load failed, trying relativeHtmlPath:', err.message);
+    mainWindow.loadFile(relativeHtmlPath).catch((relErr) => {
+      console.warn('relativeHtmlPath load failed, loading dev URL:', relErr.message);
+      const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
+      mainWindow.loadURL(startUrl);
     });
-  };
-
-  loadApp();
+  });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Page load failed:', errorCode, errorDescription);
