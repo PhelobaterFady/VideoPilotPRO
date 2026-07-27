@@ -17,20 +17,27 @@
   "build": {
     "appId": "com.videopilot.pro",
     "productName": "VideoPilot Pro",
-    "forceCodeSigning": false,
-    "files": [
-      "desktop/**/*",
-      "server/**/*",
-      "client/dist/**/*",
-      "package.json"
-    ],
     "directories": {
       "output": "dist_installer"
     },
     "win": {
-      "target": "zip",
-      "verifyUpdateCodeSignature": false
-    }
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VideoPilot Pro",
+      "differentialPackage": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "PhelobaterFady",
+        "repo": "VideoPilotPRO"
+      }
+    ]
   },
   "dependencies": {
     "concurrently": "^8.2.2",
