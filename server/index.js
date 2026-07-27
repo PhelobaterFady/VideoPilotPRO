@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 
 // Application Access Protection Middleware
-// Blocks direct web browser access to API endpoints unless requested from the VideoPilot Pro App
 const requireAppSecret = (req, res, next) => {
   const clientSecret = req.headers['x-app-secret'];
   if (!clientSecret || clientSecret !== APP_SECRET_KEY) {
@@ -21,9 +20,18 @@ const requireAppSecret = (req, res, next) => {
   next();
 };
 
-// Health Check
+// Health & Version Endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: 'VideoPilot Pro Engine', protection: 'Active', time: new Date().toISOString() });
+});
+
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: '1.0.0',
+    latestVersion: '1.0.0',
+    downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+    changelog: 'VideoPilot Pro Universal Downloader with Auto-Updater Engine'
+  });
 });
 
 // Fetch Single or Playlist Info (Protected)
@@ -105,7 +113,7 @@ app.post('/api/download', requireAppSecret, (req, res) => {
   );
 });
 
-// Serve Client Static Build Files (Ensures Electron App works stand-alone)
+// Serve Client Static Build Files
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
@@ -116,5 +124,5 @@ if (fs.existsSync(clientDist)) {
 }
 
 app.listen(PORT, () => {
-  console.log(`🚀 VideoPilot Pro Protected Engine running on http://localhost:${PORT}`);
+  console.log(`🚀 VideoPilot Pro Engine running on http://localhost:${PORT}`);
 });

@@ -20,6 +20,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: 'VideoPilot Pro Vercel API', time: new Date().toISOString() });
 });
 
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: '1.0.0',
+    latestVersion: '1.0.0',
+    downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+    changelog: 'VideoPilot Pro Universal Downloader with Auto-Updater Engine'
+  });
+});
+
 app.post('/api/info', requireAppSecret, async (req, res) => {
   try {
     const { url } = req.body;

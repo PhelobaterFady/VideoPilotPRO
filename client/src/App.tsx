@@ -11,10 +11,10 @@ import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem } from './types';
-import { Sparkles, AlertTriangle, ArrowRight, Folder } from 'lucide-react';
+import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-// Handle local file protocol when loaded inside Electron app
+const CURRENT_VERSION = '1.0.0';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 export function App() {
@@ -23,7 +23,8 @@ export function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [downloadQueue, setDownloadQueue] = useState<DownloadQueueItem[]>([]);
-  
+  const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
+
   const [downloadPath, setDownloadPath] = useState<string>(() => {
     return localStorage.getItem('videopilot_download_path') || '';
   });
@@ -40,6 +41,41 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('videopilot_download_path', downloadPath);
   }, [downloadPath]);
+
+  // Version Check
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/version`);
+        const json = await res.json();
+        if (json && json.latestVersion && json.latestVersion !== CURRENT_VERSION) {
+          setUpdateInfo({
+            available: true,
+            version: json.latestVersion,
+            url: json.downloadUrl
+          });
+        }
+      } catch (e) {
+        // Silently ignore version check error
+      }
+    };
+
+    checkVersion();
+
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        ipcRenderer.on('update-available', (_: any, info: any) => {
+          setUpdateInfo({ available: true, version: info?.version });
+        });
+        ipcRenderer.on('update-ready', (_: any, info: any) => {
+          setUpdateInfo({ available: true, version: info?.version, url: 'ready' });
+        });
+      } catch (e) {
+        // IPC listener fallback
+      }
+    }
+  }, []);
 
   const handleSelectFolder = async () => {
     if ((window as any).require) {
@@ -235,6 +271,37 @@ export function App() {
         />
 
         <main className="flex-1 overflow-y-auto p-6 bg-[#09090b]">
+          {/* Update Banner */}
+          {updateInfo?.available && (
+            <div className="max-w-5xl mx-auto mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-teal-500/20 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 animate-pulse">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-emerald-300">New Update Available! ({updateInfo.version || 'v1.1.0'})</h4>
+                  <p className="text-xs text-emerald-400/80">A new version of VideoPilot Pro is ready. Click below to upgrade automatically.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if ((window as any).require) {
+                    try {
+                      const { ipcRenderer } = (window as any).require('electron');
+                      ipcRenderer.send('restart-and-update');
+                      return;
+                    } catch (e) {}
+                  }
+                  window.open(updateInfo.url || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow flex-shrink-0"
+              >
+                <DownloadCloud className="w-4 h-4" />
+                <span>Update Now</span>
+              </button>
+            </div>
+          )}
+
           {(!downloadPath || downloadPath.trim() === '') && (
             <div className="max-w-5xl mx-auto mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3">
@@ -266,7 +333,7 @@ export function App() {
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-emerald-400 border border-zinc-700">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Protected Engine</span>
+                  <span>Protected Engine v{CURRENT_VERSION}</span>
                 </div>
               </div>
 
