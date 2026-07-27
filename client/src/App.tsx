@@ -226,19 +226,30 @@ export function App() {
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!res.ok || !json.items) {
         throw new Error(json.error || 'Batch analysis failed.');
       }
 
-      json.items.forEach((item: any) => {
+      json.items.forEach((item: any, idx: number) => {
+        const url = urls[idx] || item.url;
         if (item.success && item.data) {
           triggerSingleDownload(
-            item.data.webpage_url || item.url,
+            item.data.webpage_url || url,
             'best',
             false,
-            item.data.title,
+            item.data.title || `Media Video ${idx + 1}`,
             item.data.platform || 'unknown',
-            item.data.thumbnail || '' // Pass individual video's thumbnail!
+            item.data.thumbnail || ''
+          );
+        } else {
+          // Fallback trigger so NO URL is ever dropped or lost!
+          triggerSingleDownload(
+            url,
+            'best',
+            false,
+            `Media Video ${idx + 1}`,
+            'unknown',
+            ''
           );
         }
       });
@@ -263,7 +274,7 @@ export function App() {
         isAudio,
         item.title,
         currentMedia?.platform || 'youtube',
-        item.thumbnail // Pass playlist item's thumbnail!
+        item.thumbnail
       );
     });
   };
