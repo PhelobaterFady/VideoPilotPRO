@@ -21,7 +21,9 @@
       "output": "dist_installer"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis"],
+      "sign": null,
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -30,15 +32,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "VideoPilot Pro",
-      "differentialPackage": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "PhelobaterFady",
-        "repo": "VideoPilotPRO"
-      }
-    ]
+      "differentialPackage": true,
+      "packElevateHelper": false
+    }
   },
   "dependencies": {
     "concurrently": "^8.2.2",
