@@ -22,10 +22,10 @@ const verifyAppSecret = (req, res, next) => {
   return res.status(403).json({ error: 'Unauthorized request: Invalid app secret' });
 };
 
-// Application Version Endpoint
+// Application Version Endpoint (Bumpped to 1.2.0)
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: '1.1.0',
+    latestVersion: '1.2.0',
     downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
   });
 });

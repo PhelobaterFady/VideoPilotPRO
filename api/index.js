@@ -18,7 +18,7 @@ const verifyAppSecret = (req, res, next) => {
 
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: '1.1.0',
+    latestVersion: '1.2.0',
     downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
   });
 });
