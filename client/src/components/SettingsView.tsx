@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check } from 'lucide-react';
+import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check, Zap } from 'lucide-react';
 
 export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
 
@@ -8,6 +8,7 @@ interface SettingsViewProps {
   onChangePath: () => void;
   currentVersion?: string;
   onCheckUpdate?: () => Promise<void>;
+  onTriggerDemoUpdate?: () => void;
   updateStatus?: { checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null;
   activeTheme?: ThemeType;
   onSelectTheme?: (theme: ThemeType) => void;
@@ -18,19 +19,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onChangePath,
   currentVersion = '1.1.0',
   onCheckUpdate,
+  onTriggerDemoUpdate,
   updateStatus,
   activeTheme = 'emerald',
   onSelectTheme
 }) => {
   const [isChecking, setIsChecking] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const isConfigured = downloadPath && downloadPath.trim() !== '';
 
   const handleCheck = async () => {
+    setIsChecking(true);
+    setFeedbackMessage('Connecting to update server...');
     if (onCheckUpdate) {
-      setIsChecking(true);
       await onCheckUpdate();
-      setIsChecking(false);
     }
+    setTimeout(() => {
+      setIsChecking(false);
+      setFeedbackMessage('✓ Update check completed!');
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    }, 800);
   };
 
   const themes: { id: ThemeType; name: string; gradient: string; accentColor: string; description: string }[] = [
@@ -177,15 +185,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={handleCheck}
-            disabled={isChecking}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
-            <span>{isChecking ? 'Checking Updates...' : 'Check for Updates'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {onTriggerDemoUpdate && (
+              <button
+                onClick={onTriggerDemoUpdate}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all shadow"
+                title="Test update banner UI"
+              >
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Test Update Banner</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleCheck}
+              disabled={isChecking}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+              <span>{isChecking ? 'Checking...' : 'Check for Updates'}</span>
+            </button>
+          </div>
         </div>
+
+        {feedbackMessage && (
+          <div className="p-3 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-medium text-emerald-400 animate-pulse flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <span>{feedbackMessage}</span>
+          </div>
+        )}
 
         {updateStatus?.checked && (
           <div className={`p-4 rounded-2xl border text-xs font-medium flex items-center justify-between ${
@@ -202,7 +230,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <span>A new update (v{updateStatus.latestVersion}) is available!</span>
+                  <span>A new update (v{updateStatus.latestVersion || '1.2.0'}) is available!</span>
                 </div>
                 <button
                   onClick={() => {
@@ -215,7 +243,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     }
                     window.open(updateStatus.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow animate-bounce"
                 >
                   <DownloadCloud className="w-3.5 h-3.5" />
                   <span>Update Now</span>

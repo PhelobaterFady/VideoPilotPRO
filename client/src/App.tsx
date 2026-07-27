@@ -53,6 +53,20 @@ export function App() {
     localStorage.setItem('videopilot_theme', activeTheme);
   }, [activeTheme]);
 
+  const triggerDemoUpdate = () => {
+    setUpdateInfo({
+      available: true,
+      version: '1.2.0',
+      url: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+    });
+    setUpdateStatus({
+      checked: true,
+      isLatest: false,
+      latestVersion: '1.2.0',
+      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+    });
+  };
+
   const checkVersionRealtime = async () => {
     // Electron IPC Check
     if ((window as any).require) {
@@ -87,7 +101,7 @@ export function App() {
       }
     } catch (e) {}
 
-    // Fallback status if offline or current
+    // Fallback check
     setUpdateStatus({
       checked: true,
       isLatest: true,
@@ -353,7 +367,7 @@ export function App() {
                   <RefreshCw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-emerald-300">New Update Available! ({updateInfo.version || 'v1.1.0'})</h4>
+                  <h4 className="text-sm font-bold text-emerald-300">New Update Available! ({updateInfo.version || 'v1.2.0'})</h4>
                   <p className="text-xs text-emerald-400/80">A new version of VideoPilot Pro is ready. Click below to upgrade automatically.</p>
                 </div>
               </div>
@@ -474,6 +488,7 @@ export function App() {
               onChangePath={handleSelectFolder}
               currentVersion={CURRENT_VERSION}
               onCheckUpdate={checkVersionRealtime}
+              onTriggerDemoUpdate={triggerDemoUpdate}
               updateStatus={updateStatus}
               activeTheme={activeTheme}
               onSelectTheme={setActiveTheme}
