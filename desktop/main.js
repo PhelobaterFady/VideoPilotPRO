@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 let autoUpdater = null;
 try {
@@ -35,28 +36,60 @@ function createWindow() {
       contextIsolation: false,
       webSecurity: false
     },
-    backgroundColor: '#050505',
-    show: false // Don't show window until content is loaded to eliminate black flashes
+    backgroundColor: '#09090b',
+    show: true
   });
 
-  const localIndexPath = path.join(__dirname, '../client/dist/index.html');
+  // Official Electron API for absolute app root path resolution
+  const appRoot = app.getAppPath();
+  const indexHtmlPath = path.join(appRoot, 'client', 'dist', 'index.html');
 
-  // Direct load file natively from ASAR without fragile fs checks
-  mainWindow.loadFile(localIndexPath).then(() => {
-    mainWindow.show();
-  }).catch((err) => {
-    console.warn('loadFile failed, trying dev server URL fallback:', err.message);
+  console.log('App Root:', appRoot);
+  console.log('Target HTML Path:', indexHtmlPath);
+
+  const loadApp = () => {
+    if (fs.existsSync(indexHtmlPath)) {
+      mainWindow.loadFile(indexHtmlPath).catch((err) => {
+        console.error('loadFile error:', err);
+        fallbackToUrl();
+      });
+    } else {
+      fallbackToUrl();
+    }
+  };
+
+  const fallbackToUrl = () => {
     const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
-    mainWindow.loadURL(startUrl).then(() => {
-      mainWindow.show();
-    }).catch((urlErr) => {
-      console.error('loadURL fallback failed:', urlErr.message);
-      mainWindow.show();
+    mainWindow.loadURL(startUrl).catch((err) => {
+      console.error('loadURL fallback error:', err);
+      // Fallback HTML string so black screen NEVER happens
+      const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { background: #09090b; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            h2 { color: #10b981; margin-bottom: 8px; }
+            p { color: #a1a1aa; font-size: 14px; }
+            button { background: #10b981; color: #000; border: none; padding: 10px 20px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 16px; }
+            button:hover { background: #34d399; }
+          </style>
+        </head>
+        <body>
+          <h2>VideoPilot Pro Engine Loading...</h2>
+          <p>Initializing desktop interface and server connection.</p>
+          <button onclick="location.reload()">Reload Application</button>
+        </body>
+        </html>
+      `;
+      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
     });
-  });
+  };
+
+  loadApp();
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('Failed to load page:', errorCode, errorDescription);
+    console.error('Page load failed:', errorCode, errorDescription);
   });
 
   // Check for updates 5 seconds after launch
