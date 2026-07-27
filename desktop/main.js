@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
-// Directly start embedded Express backend server inside Electron process
+// Embedded Express backend server
 try {
   require('../server/index.js');
 } catch (err) {
@@ -28,16 +29,18 @@ function createWindow() {
     backgroundColor: '#050505'
   });
 
-  const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
-  
-  const loadApp = () => {
-    mainWindow.loadURL(startUrl).catch((err) => {
-      console.warn('Loading app retry...', err.message);
-      setTimeout(loadApp, 500);
-    });
-  };
+  const localIndexPath = path.join(__dirname, '../client/dist/index.html');
 
-  loadApp();
+  if (fs.existsSync(localIndexPath)) {
+    console.log('Loading local HTML file:', localIndexPath);
+    mainWindow.loadFile(localIndexPath);
+  } else {
+    const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
+    console.log('Loading fallback URL:', startUrl);
+    mainWindow.loadURL(startUrl).catch((err) => {
+      console.warn('Loading fallback URL failed:', err.message);
+    });
+  }
 }
 
 ipcMain.on('window-minimize', () => mainWindow?.minimize());

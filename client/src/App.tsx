@@ -14,6 +14,8 @@ import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem } from './
 import { Sparkles, AlertTriangle, ArrowRight, Folder } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
+// Handle local file protocol when loaded inside Electron app
+const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('downloader');
@@ -67,7 +69,7 @@ export function App() {
     setCurrentMedia(null);
 
     try {
-      const res = await fetch('/api/info', {
+      const res = await fetch(`${API_BASE_URL}/api/info`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +101,7 @@ export function App() {
     setErrorMessage(null);
 
     try {
-      const res = await fetch('/api/batch-info', {
+      const res = await fetch(`${API_BASE_URL}/api/batch-info`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,7 +167,7 @@ export function App() {
     setDownloadQueue(prev => [newQueueItem, ...prev]);
 
     try {
-      const res = await fetch('/api/download', {
+      const res = await fetch(`${API_BASE_URL}/api/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
