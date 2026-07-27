@@ -27,7 +27,8 @@
       "output": "dist_installer"
     },
     "win": {
-      "target": ["portable", "nsis"]
+      "target": ["portable", "nsis"],
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -35,13 +36,21 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "VideoPilot Pro"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "PhelobaterFady",
+        "repo": "VideoPilotPRO"
+      }
+    ]
   },
   "dependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
-    "electron": "^35.0.0",
+    "electron": "^35.7.5",
     "electron-builder": "^25.1.8"
   }
 }
