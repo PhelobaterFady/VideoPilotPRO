@@ -5,6 +5,10 @@ const fs = require('fs');
 let ffmpegPath = null;
 try {
   ffmpegPath = require('ffmpeg-static');
+  if (typeof ffmpegPath === 'string') {
+    // Unpack ASAR path for Electron production builds
+    ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+  }
 } catch (e) {
   console.warn('ffmpeg-static module not found, relying on system ffmpeg');
 }
@@ -119,17 +123,24 @@ function getMediaInfo(url) {
 }
 
 /**
- * Download file directly into specified PC output directory with MP3 extraction support
+ * Download file directly into specified PC output directory with robust MP3 extraction
  */
 function downloadMediaToFile(url, format, isAudio, title, outputDir, onProgress, onComplete, onError) {
   const args = ['-m', 'yt_dlp', '--js-runtimes', 'node', '--newline', '--no-warnings'];
 
-  if (ffmpegPath && fs.existsSync(ffmpegPath)) {
+  // Check resolved ffmpeg path
+  const hasFfmpeg = ffmpegPath && fs.existsSync(ffmpegPath);
+  if (hasFfmpeg) {
     args.push('--ffmpeg-location', ffmpegPath);
   }
 
   if (isAudio || format === 'audio-best') {
-    args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
+    if (hasFfmpeg) {
+      args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
+    } else {
+      // Fallback if ffmpeg is missing: extract best raw audio stream (.m4a / .aac)
+      args.push('-f', 'ba/b');
+    }
   } else {
     args.push('-f', 'b/best');
   }
@@ -147,7 +158,7 @@ function downloadMediaToFile(url, format, isAudio, title, outputDir, onProgress,
   args.push('-o', outputPath);
   args.push(url);
 
-  console.log(`Starting download: ${url} -> ${outputPath} (audio: ${isAudio})`);
+  console.log(`Starting download: ${url} -> ${outputPath} (hasFfmpeg: ${hasFfmpeg})`);
 
   const proc = spawn('python', args);
 
@@ -169,7 +180,7 @@ function downloadMediaToFile(url, format, isAudio, title, outputDir, onProgress,
 
   proc.on('close', (code) => {
     if (code === 0) {
-      console.log(`Download finished successfully in ${outputDir}`);
+      console.log(`Download completed successfully in ${outputDir}`);
       onComplete && onComplete();
     } else {
       console.error(`Download process exited with code ${code}`);
