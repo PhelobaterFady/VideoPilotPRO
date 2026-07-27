@@ -10,11 +10,12 @@ import { BatchDownloader } from './components/BatchDownloader';
 import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
+import type { ThemeType } from './components/SettingsView';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem } from './types';
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.0.0';
+const CURRENT_VERSION = '1.1.0';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 export function App() {
@@ -26,6 +27,10 @@ export function App() {
   
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<{ checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null>(null);
+
+  const [activeTheme, setActiveTheme] = useState<ThemeType>(() => {
+    return (localStorage.getItem('videopilot_theme') as ThemeType) || 'emerald';
+  });
 
   const [downloadPath, setDownloadPath] = useState<string>(() => {
     return localStorage.getItem('videopilot_download_path') || '';
@@ -43,6 +48,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('videopilot_download_path', downloadPath);
   }, [downloadPath]);
+
+  useEffect(() => {
+    localStorage.setItem('videopilot_theme', activeTheme);
+  }, [activeTheme]);
 
   const checkVersionRealtime = async () => {
     try {
@@ -295,7 +304,7 @@ export function App() {
   const activeDownloads = downloadQueue.filter(i => i.status === 'downloading').length;
 
   return (
-    <div className="h-screen w-screen bg-[#050505] text-zinc-100 flex flex-col overflow-hidden select-none">
+    <div className={`h-screen w-screen bg-[#050505] text-zinc-100 flex flex-col overflow-hidden select-none theme-${activeTheme}`}>
       <TitleBar />
 
       <div className="flex-1 flex overflow-hidden">
@@ -436,6 +445,8 @@ export function App() {
               currentVersion={CURRENT_VERSION}
               onCheckUpdate={checkVersionRealtime}
               updateStatus={updateStatus}
+              activeTheme={activeTheme}
+              onSelectTheme={setActiveTheme}
             />
           )}
         </main>

@@ -3,77 +3,87 @@ const cors = require('cors');
 const { getMediaInfo, downloadMediaToFile } = require('../server/utils/yt');
 
 const app = express();
-const APP_SECRET_KEY = process.env.APP_SECRET_KEY || 'VP_PRO_APP_SECRET_2026';
+const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-const requireAppSecret = (req, res, next) => {
-  const clientSecret = req.headers['x-app-secret'];
-  if (!clientSecret || clientSecret !== APP_SECRET_KEY) {
-    return res.status(403).json({ error: 'Access Denied: Restricted to VideoPilot Pro Application.' });
+const verifyAppSecret = (req, res, next) => {
+  const secret = req.headers['x-app-secret'];
+  if (secret === APP_SECRET) {
+    return next();
   }
-  next();
+  return res.status(403).json({ error: 'Unauthorized request: Invalid app secret' });
 };
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', app: 'VideoPilot Pro Vercel API', time: new Date().toISOString() });
-});
 
 app.get('/api/version', (req, res) => {
   res.json({
-    version: '1.0.0',
-    latestVersion: '1.0.0',
-    downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
-    changelog: 'VideoPilot Pro Universal Downloader with Auto-Updater Engine'
+    latestVersion: '1.1.0',
+    downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
   });
 });
 
-app.post('/api/info', requireAppSecret, async (req, res) => {
+app.post('/api/info', verifyAppSecret, async (req, res) => {
   try {
     const { url } = req.body;
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ error: 'Please provide a valid media URL' });
+    if (!url) {
+      return res.status(400).json({ error: 'Media URL is required' });
     }
-    const info = await getMediaInfo(url.trim());
-    res.json({ success: true, data: info });
-  } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to fetch media metadata' });
+    const mediaData = await getMediaInfo(url);
+    return res.json({ success: true, data: mediaData });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to fetch media details' });
   }
 });
 
-app.post('/api/batch-info', requireAppSecret, async (req, res) => {
+app.post('/api/batch-info', verifyAppSecret, async (req, res) => {
   try {
     const { urls } = req.body;
-    if (!Array.isArray(urls) || urls.length === 0) {
-      return res.status(400).json({ error: 'Please provide an array of URLs' });
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return res.status(400).json({ error: 'List of URLs is required' });
     }
+
     const results = await Promise.allSettled(
-      urls.slice(0, 10).map(u => getMediaInfo(u.trim()))
+      urls.map(url => getMediaInfo(url.trim()))
     );
-    const items = results.map((r, index) => 
-      r.status === 'fulfilled' 
-        ? { success: true, url: urls[index], data: r.value } 
-        : { success: false, url: urls[index], error: r.reason?.message }
-    );
-    res.json({ success: true, items });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    const formatted = results.map((res, index) => {
+      if (res.status === 'fulfilled') {
+        return { url: urls[index], success: true, data: res.value };
+      } else {
+        return { url: urls[index], success: false, error: res.reason?.message || 'Extraction failed' };
+      }
+    });
+
+    return res.json({ success: true, items: formatted });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Batch extraction failed' });
   }
 });
 
-app.post('/api/download', requireAppSecret, (req, res) => {
-  const { url, format, audioOnly, title, outputDir } = req.body;
-  if (!url || !outputDir) {
-    return res.status(400).json({ error: 'URL and outputDir parameters are required' });
+app.post('/api/download', verifyAppSecret, async (req, res) => {
+  try {
+    const { url, format, audioOnly, title, outputDir } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    const result = await downloadMediaToFile({
+      url,
+      format,
+      audioOnly: !!audioOnly,
+      title,
+      outputDir
+    });
+
+    return res.json({
+      success: true,
+      message: 'Download completed successfully',
+      filePath: result.filePath
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to complete download' });
   }
-  const isAudio = audioOnly === true || audioOnly === 'true' || format === 'audio-best';
-  downloadMediaToFile(
-    url, format, isAudio, title, outputDir.trim(),
-    () => {},
-    () => { if (!res.headersSent) res.json({ success: true, message: `Successfully saved to ${outputDir}` }); },
-    (err) => { if (!res.headersSent) res.status(500).json({ error: err.message }); }
-  );
 });
 
 module.exports = app;

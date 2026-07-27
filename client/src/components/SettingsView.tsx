@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud } from 'lucide-react';
+import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check } from 'lucide-react';
+
+export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
 
 interface SettingsViewProps {
   downloadPath: string;
@@ -7,14 +9,18 @@ interface SettingsViewProps {
   currentVersion?: string;
   onCheckUpdate?: () => Promise<void>;
   updateStatus?: { checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null;
+  activeTheme?: ThemeType;
+  onSelectTheme?: (theme: ThemeType) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   downloadPath,
   onChangePath,
-  currentVersion = '1.0.0',
+  currentVersion = '1.1.0',
   onCheckUpdate,
-  updateStatus
+  updateStatus,
+  activeTheme = 'emerald',
+  onSelectTheme
 }) => {
   const [isChecking, setIsChecking] = useState(false);
   const isConfigured = downloadPath && downloadPath.trim() !== '';
@@ -26,6 +32,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setIsChecking(false);
     }
   };
+
+  const themes: { id: ThemeType; name: string; gradient: string; accentColor: string; description: string }[] = [
+    {
+      id: 'emerald',
+      name: 'Emerald Cyber (Default)',
+      gradient: 'from-emerald-500 to-teal-600',
+      accentColor: '#10b981',
+      description: 'Futuristic neon green accents with deep obsidian background'
+    },
+    {
+      id: 'violet',
+      name: 'Electric Violet',
+      gradient: 'from-purple-500 to-indigo-600',
+      accentColor: '#a855f7',
+      description: 'Vibrant purple & indigo tones for a sleek creative aesthetic'
+    },
+    {
+      id: 'cyan',
+      name: 'Cyberpunk Cyan',
+      gradient: 'from-cyan-400 to-blue-600',
+      accentColor: '#06b6d4',
+      description: 'High-tech sky blue and cyan glow inspired by futuristic UI'
+    },
+    {
+      id: 'crimson',
+      name: 'Sunset Crimson',
+      gradient: 'from-rose-500 to-amber-600',
+      accentColor: '#f43f5e',
+      description: 'Warm crimson and fiery gold accents for high contrast'
+    }
+  ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -76,6 +113,54 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             {isConfigured ? 'Change Folder' : 'Select Storage Folder'}
           </button>
+        </div>
+      </div>
+
+      {/* Theme Customization (NEW FEATURE v1.1.0) */}
+      <div className="bg-zinc-900/60 p-6 rounded-3xl border border-zinc-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-800 text-purple-400 flex items-center justify-center border border-zinc-700">
+              <Palette className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">Interface Customization & Themes</h3>
+                <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[10px] font-extrabold border border-purple-500/30">NEW v1.1.0</span>
+              </div>
+              <p className="text-xs text-zinc-400">Choose your preferred visual color theme for VideoPilot Pro</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          {themes.map(t => {
+            const isSelected = activeTheme === t.id;
+            return (
+              <div
+                key={t.id}
+                onClick={() => onSelectTheme && onSelectTheme(t.id)}
+                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start justify-between gap-3 ${
+                  isSelected
+                    ? 'bg-zinc-800/80 border-purple-500 shadow-lg shadow-purple-500/10 scale-[1.02]'
+                    : 'bg-black/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/40'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${t.gradient} shadow`} />
+                    <span className="text-xs font-bold text-white">{t.name}</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">{t.description}</p>
+                </div>
+                {isSelected && (
+                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center flex-shrink-0 shadow">
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
