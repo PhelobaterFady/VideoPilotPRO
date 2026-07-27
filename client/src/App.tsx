@@ -54,32 +54,49 @@ export function App() {
   }, [activeTheme]);
 
   const checkVersionRealtime = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/version`);
-      const json = await res.json();
-      if (json && json.latestVersion) {
-        const isNewer = json.latestVersion !== CURRENT_VERSION;
-        setUpdateStatus({
-          checked: true,
-          isLatest: !isNewer,
-          latestVersion: json.latestVersion,
-          downloadUrl: json.downloadUrl
-        });
+    // Electron IPC Check
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        ipcRenderer.send('check-for-updates');
+      } catch (e) {}
+    }
 
-        if (isNewer) {
-          setUpdateInfo({
-            available: true,
-            version: json.latestVersion,
-            url: json.downloadUrl
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/version`).catch(() => fetch('/api/version'));
+      if (res && res.ok) {
+        const json = await res.json();
+        if (json && json.latestVersion) {
+          const isNewer = json.latestVersion !== CURRENT_VERSION;
+          setUpdateStatus({
+            checked: true,
+            isLatest: !isNewer,
+            latestVersion: json.latestVersion,
+            downloadUrl: json.downloadUrl
           });
+
+          if (isNewer) {
+            setUpdateInfo({
+              available: true,
+              version: json.latestVersion,
+              url: json.downloadUrl
+            });
+          }
+          return;
         }
       }
-    } catch (e) {
-      setUpdateStatus({ checked: true, isLatest: true, latestVersion: CURRENT_VERSION });
-    }
+    } catch (e) {}
+
+    // Fallback status if offline or current
+    setUpdateStatus({
+      checked: true,
+      isLatest: true,
+      latestVersion: CURRENT_VERSION,
+      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+    });
   };
 
-  // Version Check on mount
+  // Version Check on mount & IPC setup
   useEffect(() => {
     checkVersionRealtime();
 
@@ -93,6 +110,19 @@ export function App() {
         ipcRenderer.on('update-ready', (_: any, info: any) => {
           setUpdateInfo({ available: true, version: info?.version, url: 'ready' });
           setUpdateStatus({ checked: true, isLatest: false, latestVersion: info?.version });
+        });
+        ipcRenderer.on('update-check-result', (_: any, result: any) => {
+          if (result) {
+            const isNewer = result.available && result.version && result.version !== CURRENT_VERSION;
+            setUpdateStatus({
+              checked: true,
+              isLatest: !isNewer,
+              latestVersion: result.version || CURRENT_VERSION
+            });
+            if (isNewer) {
+              setUpdateInfo({ available: true, version: result.version });
+            }
+          }
         });
       } catch (e) {
         // IPC listener fallback

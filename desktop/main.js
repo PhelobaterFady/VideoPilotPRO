@@ -43,7 +43,7 @@ function createWindow() {
   const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
   const relativeHtmlPath = path.join(__dirname, '..', 'client', 'dist', 'index.html');
 
-  // Direct load without fragile fs.existsSync checks that fail inside ASAR archives
+  // Direct load without fragile fs.existsSync checks
   mainWindow.loadFile(appRootHtmlPath).catch((err) => {
     console.warn('appRootHtmlPath load failed, trying relativeHtmlPath:', err.message);
     mainWindow.loadFile(relativeHtmlPath).catch((relErr) => {
@@ -76,6 +76,23 @@ if (autoUpdater) {
     mainWindow?.webContents.send('update-ready', info);
   });
 }
+
+ipcMain.on('check-for-updates', async () => {
+  if (autoUpdater) {
+    try {
+      const result = await autoUpdater.checkForUpdatesAndNotify();
+      mainWindow?.webContents.send('update-check-result', {
+        checked: true,
+        available: !!result,
+        version: result?.updateInfo?.version || '1.1.0'
+      });
+    } catch (err) {
+      mainWindow?.webContents.send('update-check-result', { checked: true, available: false, error: err.message });
+    }
+  } else {
+    mainWindow?.webContents.send('update-check-result', { checked: true, available: false });
+  }
+});
 
 ipcMain.on('restart-and-update', () => {
   if (autoUpdater) {
