@@ -41,7 +41,7 @@ export const UrlInput: React.FC<UrlInputProps> = ({ onAnalyze, isLoading }) => {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-4">
+    <div className="w-full my-4">
       <form onSubmit={handleSubmit} className="relative group">
         <div className="relative flex items-center glass-input rounded-2xl p-2 md:p-2.5 border border-zinc-800 shadow-2xl transition-all">
           <div className="flex items-center gap-3 pl-3 text-zinc-400">

@@ -85,7 +85,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Save Storage Settings */}
       <div className={`p-6 rounded-3xl border shadow-xl transition-all ${
         isConfigured ? 'bg-zinc-900/60 border-zinc-800' : 'bg-amber-500/10 border-amber-500/30'

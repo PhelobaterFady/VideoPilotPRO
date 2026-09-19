@@ -23,7 +23,7 @@ export const BatchDownloader: React.FC<BatchDownloaderProps> = ({ onAnalyzeBatch
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-4 glass-card rounded-3xl p-6 border border-zinc-800 shadow-2xl relative">
+    <div className="w-full my-4 glass-card rounded-3xl p-6 border border-zinc-800 shadow-2xl relative">
       <button
         onClick={onClose}
         className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white transition-colors"

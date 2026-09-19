@@ -51,10 +51,10 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-4 glass-card rounded-3xl p-5 border border-zinc-800 shadow-2xl relative overflow-hidden">
-      <div className="flex flex-col md:flex-row gap-5 items-center">
+    <div className="w-full my-4 glass-card rounded-3xl p-6 border border-zinc-800 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-6 items-center">
         {/* Thumbnail Preview with In-App Play Overlay */}
-        <div className="relative w-full md:w-80 h-48 md:h-52 rounded-2xl overflow-hidden group shadow-lg flex-shrink-0 bg-zinc-900">
+        <div className="relative w-full md:w-96 h-52 md:h-64 rounded-2xl overflow-hidden group shadow-lg flex-shrink-0 bg-zinc-900">
           <img
             src={media.thumbnail || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=600&q=80'}
             alt={media.title}
@@ -141,7 +141,7 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
             </div>
 
             {/* Quality Cards Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
               {media.formats && media.formats.map((fmt) => {
                 const isSelected = selectedFormat === fmt.formatId;
                 const isFmtAudio = !fmt.isVideo;

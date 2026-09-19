@@ -36,7 +36,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800">
         <div className="flex items-center gap-3">

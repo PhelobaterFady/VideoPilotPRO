@@ -732,10 +732,10 @@ export function App() {
           onToggleCollapse={toggleSidebar}
         />
 
-        <main className="flex-1 overflow-y-auto p-6 bg-[#09090b]">
+        <main className="flex-1 overflow-y-auto px-6 md:px-10 py-6 bg-[#09090b]">
           {/* Update Banner */}
           {updateInfo?.available && (
-            <div className="max-w-5xl mx-auto mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-teal-500/20 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl">
+            <div className="w-full mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-teal-500/20 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 animate-pulse">
                   <RefreshCw className="w-5 h-5" />
@@ -757,7 +757,7 @@ export function App() {
 
           {/* Floating Clipboard Quick-Action Banner */}
           {clipboardDetectedUrl && (
-            <div className="max-w-5xl mx-auto mb-4 p-3.5 rounded-2xl bg-zinc-900/90 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl backdrop-blur-md">
+            <div className="w-full mb-4 p-3.5 rounded-2xl bg-zinc-900/90 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl backdrop-blur-md">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0">
                   <ClipboardCopy className="w-4 h-4" />
@@ -792,7 +792,7 @@ export function App() {
           )}
 
           {(!downloadPath || downloadPath.trim() === '') && (
-            <div className="max-w-5xl mx-auto mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+            <div className="w-full mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -815,7 +815,7 @@ export function App() {
 
           {/* Tab Content with Smooth Transitions */}
           {activeTab === 'downloader' && (
-            <div className="max-w-5xl mx-auto space-y-6 tab-content-enter">
+            <div className="w-full space-y-6 tab-content-enter">
               <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800">
                 <div>
                   <h2 className="text-lg font-bold text-white">Direct Downloader</h2>

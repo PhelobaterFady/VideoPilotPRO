@@ -83,7 +83,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-4 glass-card rounded-3xl p-5 md:p-6 border border-zinc-800 shadow-2xl space-y-4">
+    <div className="w-full my-4 glass-card rounded-3xl p-5 md:p-6 border border-zinc-800 shadow-2xl space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-emerald-400 flex items-center justify-center border border-zinc-700 flex-shrink-0">

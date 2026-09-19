@@ -27,7 +27,7 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
   const hasCompleted = queue.some(i => i.status === 'completed');
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-6 glass-card rounded-3xl p-6 border border-zinc-800 shadow-2xl relative">
+    <div className="w-full my-6 glass-card rounded-3xl p-6 border border-zinc-800 shadow-2xl relative">
       <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
