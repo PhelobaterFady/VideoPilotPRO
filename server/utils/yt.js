@@ -397,6 +397,10 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       const text = data.toString();
       const lines = text.split('\n');
       for (const line of lines) {
+        if (line.includes('has already been downloaded')) {
+          const match = line.match(/\[download\]\s+(.+?)\s+has already been downloaded/);
+          if (match && match[1]) finalDetectedPath = match[1].trim();
+        }
         if (line.includes('[download]') && line.includes('Destination:')) {
           const destMatch = line.match(/Destination:\s*(.+)$/);
           if (destMatch && destMatch[1]) finalDetectedPath = destMatch[1].trim();
@@ -426,10 +430,28 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
 
     proc.on('close', (code) => {
       if (code === 0) {
-        const resolvedPath = (finalDetectedPath && fs.existsSync(finalDetectedPath))
+        let resolvedPath = (finalDetectedPath && fs.existsSync(finalDetectedPath))
           ? path.resolve(finalDetectedPath)
-          : path.resolve(outputPath.replace('%(title)s', title).replace('%(ext)s', isAudio ? 'mp3' : 'mp4'));
-        console.log(`Download completed successfully: ${resolvedPath}`);
+          : null;
+
+        // Fallback: find latest downloaded file in outputDir if finalDetectedPath was not caught
+        if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+          try {
+            const files = fs.readdirSync(outputDir)
+              .filter(f => !f.endsWith('.part') && !f.endsWith('.ytdl'))
+              .map(f => ({ name: f, fullPath: path.join(outputDir, f), mtime: fs.statSync(path.join(outputDir, f)).mtime }))
+              .sort((a, b) => b.mtime - a.mtime);
+            if (files.length > 0) {
+              resolvedPath = files[0].fullPath;
+            }
+          } catch (e) {}
+        }
+
+        if (!resolvedPath) {
+          resolvedPath = path.resolve(outputPath.replace('%(title)s', title).replace('%(ext)s', isAudio ? 'mp3' : 'mp4'));
+        }
+
+        console.log(`Download completed successfully. Local PC file: ${resolvedPath}`);
         onComplete && onComplete();
         resolve({ success: true, filePath: resolvedPath });
       } else {

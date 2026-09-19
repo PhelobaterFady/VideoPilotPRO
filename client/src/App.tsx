@@ -654,14 +654,6 @@ export function App() {
                     <VideoPreviewCard
                       media={currentMedia}
                       onDownload={triggerSingleDownload}
-                      onPlayPreview={(url, title, isVideo) => {
-                        handlePlayMedia({
-                          title,
-                          url,
-                          thumbnail: currentMedia.thumbnail,
-                          isAudio: !isVideo
-                        });
-                      }}
                     />
                   )}
                 </>
@@ -719,7 +711,7 @@ export function App() {
       {/* In-App Media Player Modal */}
       {activePlayerMedia && activePlayerMedia.isOpen && (
         <MediaPlayerModal
-          mediaUrl={activePlayerMedia.filePath || activePlayerMedia.url || ''}
+          filePath={activePlayerMedia.filePath || ''}
           title={activePlayerMedia.title}
           isVideo={!activePlayerMedia.isAudio}
           onClose={() => setActivePlayerMedia(null)}

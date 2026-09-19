@@ -90,17 +90,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     ) : (
                       <Download className="w-5 h-5 text-zinc-400" />
                     )}
-                    {onPlayMedia && (item.filePath || item.url) && (
+                    {onPlayMedia && item.filePath && (
                       <button
                         onClick={() => onPlayMedia({
                           title: item.title,
                           filePath: item.filePath,
-                          url: item.url,
                           thumbnail: item.thumbnail,
                           isAudio
                         })}
                         className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity"
-                        title="Play in App"
+                        title="Play from PC in App"
                       >
                         <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
                       </button>
@@ -124,17 +123,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {onPlayMedia && (item.filePath || item.url) && (
+                  {onPlayMedia && item.filePath && (
                     <button
                       onClick={() => onPlayMedia({
                         title: item.title,
                         filePath: item.filePath,
-                        url: item.url,
                         thumbnail: item.thumbnail,
                         isAudio
                       })}
                       className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-emerald-400 transition-all"
-                      title="Play in mini-player"
+                      title="Play from PC in App"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>

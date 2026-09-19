@@ -119,11 +119,11 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
 
                 {item.status === 'completed' && (
                   <div className="flex items-center gap-2">
-                    {onPlayMedia && (item.filePath || item.downloadUrl) && (
+                    {onPlayMedia && item.filePath && (
                       <button
-                        onClick={() => onPlayMedia(item.filePath || item.downloadUrl || '', item.title, !item.isAudio)}
+                        onClick={() => onPlayMedia(item.filePath!, item.title, !item.isAudio)}
                         className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
-                        title="Play in App"
+                        title="Play in App from computer"
                       >
                         <Play className="w-3.5 h-3.5 fill-emerald-400" />
                       </button>

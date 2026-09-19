@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import type { MediaInfo } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, Clock, User, ExternalLink, Check, Play, FileText, Zap } from 'lucide-react';
+import { Download, Clock, User, ExternalLink, Check, FileText, Zap } from 'lucide-react';
 
 interface VideoPreviewCardProps {
   media: MediaInfo;
   onDownload: (url: string, formatId: string, isAudio: boolean, title: string, subtitleLang?: string) => void;
-  onPlayPreview?: (url: string, title: string, isVideo: boolean) => void;
 }
 
 export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
   media,
-  onDownload,
-  onPlayPreview
+  onDownload
 }) => {
   const [selectedFormat, setSelectedFormat] = useState<string>(
     media.formats && media.formats.length > 0 ? media.formats[0].formatId : 'best'
@@ -61,16 +59,6 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
           <div className="absolute top-3 left-3">
             <PlatformBadge platform={media.platform} />
           </div>
-
-          {onPlayPreview && media.webpage_url && (
-            <button
-              onClick={() => onPlayPreview(media.webpage_url || '', media.title, media.type !== 'video' ? true : true)}
-              className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center border border-white/20 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-xl"
-              title="Preview in Player"
-            >
-              <Play className="w-5 h-5 text-emerald-400 fill-emerald-400 ml-0.5" />
-            </button>
-          )}
 
           {media.duration ? (
             <div className="absolute bottom-3 right-3 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-200 flex items-center gap-1 font-mono">
