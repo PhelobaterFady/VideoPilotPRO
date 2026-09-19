@@ -185,8 +185,8 @@ function getMediaInfo(url) {
       );
     }
 
-    if (url.includes('list=') || url.includes('playlist')) {
-      args.push('--flat-playlist');
+    if (url.includes('list=') || url.includes('playlist') || url.includes('/@') || url.includes('/channel/') || url.includes('/c/') || url.includes('/user/')) {
+      args.push('--flat-playlist', '--playlist-end', '100');
     }
 
     if (ffmpegPath && fs.existsSync(ffmpegPath)) {
@@ -240,13 +240,18 @@ function getMediaInfo(url) {
               ? entry.url
               : (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : url);
 
+            const isShort = (entry.duration && entry.duration <= 60) ||
+                            (entryUrl && entryUrl.includes('/shorts/')) ||
+                            (entry.title && entry.title.toLowerCase().includes('#shorts'));
+
             return {
               id: entry.id || `item_${index}`,
               title: entry.title || `Track ${index + 1}`,
               url: entryUrl,
               duration: entry.duration || 0,
               uploader: entry.uploader || entry.channel || data.title || 'Unknown',
-              thumbnail: entry.thumbnail || (entry.thumbnails && entry.thumbnails[0] ? entry.thumbnails[0].url : '') || data.thumbnail || ''
+              thumbnail: entry.thumbnail || (entry.thumbnails && entry.thumbnails[0] ? entry.thumbnails[0].url : '') || data.thumbnail || '',
+              isShort: !!isShort
             };
           });
 
@@ -312,6 +317,9 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   let onComplete = null;
   let onError = null;
 
+  let limitRate = null;
+  let onProcessStart = null;
+
   if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
     url = urlOrOptions.url;
     format = urlOrOptions.format || 'best';
@@ -319,9 +327,11 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     title = urlOrOptions.title || '';
     outputDir = urlOrOptions.outputDir || path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Downloads');
     subtitleLang = urlOrOptions.subtitleLang || null;
+    limitRate = urlOrOptions.limitRate || null;
     onProgress = urlOrOptions.onProgress;
     onComplete = urlOrOptions.onComplete;
     onError = urlOrOptions.onError;
+    onProcessStart = urlOrOptions.onProcessStart;
   } else {
     url = urlOrOptions;
     format = formatArg || 'best';
@@ -341,8 +351,18 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       '--newline',
       '--no-warnings',
       '--windows-filenames',
-      '--concurrent-fragments', '5'
+      '--continue'
     ];
+
+    // Bandwidth Speed Limiter
+    if (limitRate && limitRate !== 'unlimited' && limitRate.trim() !== '') {
+      const cleanRate = limitRate.trim().toUpperCase();
+      // If user typed '3' convert to '3M', if '500K' or '2M' leave as is
+      const rateVal = /^\d+$/.test(cleanRate) ? `${cleanRate}M` : cleanRate;
+      args.push('--limit-rate', rateVal);
+    } else {
+      args.push('--concurrent-fragments', '5');
+    }
 
     if (platform === 'youtube') {
       args.push('--extractor-args', 'youtube:player_client=android,web');
@@ -387,9 +407,13 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     args.push('-o', outputPath);
     args.push(url);
 
-    console.log(`Starting Turbo download: ${url} -> ${outputPath}`);
+    console.log(`Starting download [LimitRate: ${limitRate || 'Unlimited'}]: ${url} -> ${outputPath}`);
 
     const proc = spawn('python', args);
+    if (onProcessStart && typeof onProcessStart === 'function') {
+      onProcessStart(proc);
+    }
+
     let stderrLog = '';
     let finalDetectedPath = '';
 
@@ -429,6 +453,15 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     });
 
     proc.on('close', (code) => {
+      if (proc._userKilled) {
+        console.log(`Download user-${proc._userAction || 'killed'}: ${url}`);
+        return resolve({
+          success: false,
+          killed: true,
+          status: proc._userAction || 'cancelled'
+        });
+      }
+
       if (code === 0) {
         let resolvedPath = (finalDetectedPath && fs.existsSync(finalDetectedPath))
           ? path.resolve(finalDetectedPath)
@@ -463,6 +496,9 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     });
 
     proc.on('error', (err) => {
+      if (proc._userKilled) {
+        return resolve({ success: false, killed: true, status: proc._userAction || 'cancelled' });
+      }
       console.error('yt-dlp spawn error:', err);
       onError && onError(err);
       reject(err);
@@ -470,8 +506,22 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   });
 }
 
+function killProcessTree(pid) {
+  if (!pid) return;
+  try {
+    if (process.platform === 'win32') {
+      execFile('taskkill', ['/F', '/T', '/PID', pid.toString()], () => {});
+    } else {
+      process.kill(pid, 'SIGKILL');
+    }
+  } catch (e) {
+    console.warn(`Error terminating process tree for PID ${pid}:`, e.message);
+  }
+}
+
 module.exports = {
   detectPlatform,
   getMediaInfo,
-  downloadMediaToFile
+  downloadMediaToFile,
+  killProcessTree
 };

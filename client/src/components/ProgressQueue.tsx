@@ -1,20 +1,26 @@
 import React from 'react';
 import type { DownloadQueueItem } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Zap, Clock, Folder, ExternalLink } from 'lucide-react';
+import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Zap, Clock, Folder, ExternalLink, Pause, Play, X } from 'lucide-react';
 
 interface ProgressQueueProps {
   queue: DownloadQueueItem[];
   onClearCompleted: () => void;
   onOpenFile?: (filePath: string) => void;
   onShowInFolder?: (filePath: string) => void;
+  onPauseDownload?: (id: string) => void;
+  onResumeDownload?: (id: string) => void;
+  onCancelDownload?: (id: string) => void;
 }
 
 export const ProgressQueue: React.FC<ProgressQueueProps> = ({
   queue,
   onClearCompleted,
   onOpenFile,
-  onShowInFolder
+  onShowInFolder,
+  onPauseDownload,
+  onResumeDownload,
+  onCancelDownload
 }) => {
   if (queue.length === 0) return null;
 
@@ -91,28 +97,84 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
 
               <div className="flex-shrink-0 text-right">
                 {item.status === 'downloading' && (
-                  <div className="space-y-1">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>{Math.round(item.progress)}%</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="space-y-1 text-right">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>{Math.round(item.progress)}%</span>
+                      </span>
+                      {(item.speed || item.eta) && (
+                        <div className="flex items-center justify-end gap-2 text-[10px] font-mono text-zinc-400 mt-1">
+                          {item.speed && (
+                            <span className="flex items-center gap-1 text-cyan-400">
+                              <Zap className="w-3 h-3" />
+                              {item.speed}
+                            </span>
+                          )}
+                          {item.eta && (
+                            <span className="flex items-center gap-1 text-zinc-400">
+                              <Clock className="w-3 h-3" />
+                              ETA {item.eta}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {onPauseDownload && (
+                        <button
+                          onClick={() => onPauseDownload(item.id)}
+                          className="p-2 rounded-xl bg-zinc-800 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-400 border border-zinc-700 transition-all"
+                          title="Pause Download"
+                        >
+                          <Pause className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onCancelDownload && (
+                        <button
+                          onClick={() => onCancelDownload(item.id)}
+                          className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 text-zinc-300 hover:text-red-400 border border-zinc-700 transition-all"
+                          title="Cancel Download"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {item.status === 'paused' && (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <Pause className="w-3.5 h-3.5" />
+                      <span>Paused ({Math.round(item.progress)}%)</span>
                     </span>
-                    {(item.speed || item.eta) && (
-                      <div className="flex items-center justify-end gap-2 text-[10px] font-mono text-zinc-400 mt-1">
-                        {item.speed && (
-                          <span className="flex items-center gap-1 text-cyan-400">
-                            <Zap className="w-3 h-3" />
-                            {item.speed}
-                          </span>
-                        )}
-                        {item.eta && (
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <Clock className="w-3 h-3" />
-                            ETA {item.eta}
-                          </span>
-                        )}
-                      </div>
+                    {onResumeDownload && (
+                      <button
+                        onClick={() => onResumeDownload(item.id)}
+                        className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 transition-all"
+                        title="Resume Download"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                    )}
+                    {onCancelDownload && (
+                      <button
+                        onClick={() => onCancelDownload(item.id)}
+                        className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 text-zinc-300 hover:text-red-400 border border-zinc-700 transition-all"
+                        title="Cancel Download"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
+                )}
+
+                {item.status === 'cancelled' && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancelled</span>
+                  </span>
                 )}
 
                 {item.status === 'completed' && (
@@ -154,10 +216,14 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
             </div>
 
             {/* Real-time Progress Bar */}
-            {item.status === 'downloading' && (
+            {(item.status === 'downloading' || item.status === 'paused') && (
               <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden relative border border-zinc-800">
                 <div
-                  className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300 shadow-md"
+                  className={`h-full rounded-full transition-all duration-300 shadow-md ${
+                    item.status === 'paused'
+                      ? 'bg-amber-500'
+                      : 'bg-gradient-to-r from-emerald-500 to-cyan-400'
+                  }`}
                   style={{ width: `${Math.max(item.progress, 5)}%` }}
                 ></div>
               </div>

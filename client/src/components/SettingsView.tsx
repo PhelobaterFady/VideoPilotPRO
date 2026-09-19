@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check } from 'lucide-react';
+import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check, Gauge } from 'lucide-react';
 
 export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
 
@@ -19,6 +19,8 @@ interface SettingsViewProps {
   onDownloadUpdate?: (url?: string) => void;
   activeTheme?: ThemeType;
   onSelectTheme?: (theme: ThemeType) => void;
+  speedLimit?: string;
+  onChangeSpeedLimit?: (limit: string) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -29,8 +31,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   updateStatus,
   onDownloadUpdate,
   activeTheme = 'emerald',
-  onSelectTheme
+  onSelectTheme,
+  speedLimit = 'unlimited',
+  onChangeSpeedLimit
 }) => {
+  const [customSpeed, setCustomSpeed] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const isConfigured = downloadPath && downloadPath.trim() !== '';
@@ -129,6 +134,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {isConfigured ? 'Change Folder' : 'Select Storage Folder'}
           </button>
         </div>
+      </div>
+
+      {/* Download Speed Limiter & Bandwidth Control */}
+      <div className="bg-zinc-900/60 p-6 rounded-3xl border border-zinc-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-zinc-800 text-cyan-400 flex items-center justify-center border border-zinc-700">
+              <Gauge className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">Download Speed Limiter & Bandwidth</h3>
+                <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[10px] font-extrabold border border-cyan-500/30">NEW</span>
+              </div>
+              <p className="text-xs text-zinc-400">Throttle download speed to preserve network bandwidth for other devices</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 pt-2">
+          {[
+            { id: 'unlimited', label: '⚡ Unlimited', sub: 'Max Speed' },
+            { id: '1M', label: '1 MB/s', sub: 'Low impact' },
+            { id: '3M', label: '3 MB/s', sub: 'Balanced' },
+            { id: '5M', label: '5 MB/s', sub: 'High Speed' },
+            { id: '10M', label: '10 MB/s', sub: 'Very Fast' },
+            { id: 'custom', label: '⚙️ Custom', sub: 'Specific rate' }
+          ].map(opt => {
+            const isSelected = opt.id === 'custom'
+              ? !['unlimited', '1M', '3M', '5M', '10M'].includes(speedLimit)
+              : speedLimit === opt.id;
+
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  if (opt.id === 'custom') {
+                    const target = customSpeed ? `${customSpeed}M` : '2M';
+                    onChangeSpeedLimit && onChangeSpeedLimit(target);
+                  } else {
+                    onChangeSpeedLimit && onChangeSpeedLimit(opt.id);
+                  }
+                }}
+                className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                  isSelected
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-500/10 scale-[1.02]'
+                    : 'bg-black/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                <span className="text-xs font-bold">{opt.label}</span>
+                <span className="text-[10px] opacity-70">{opt.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {!['unlimited', '1M', '3M', '5M', '10M'].includes(speedLimit) && (
+          <div className="flex items-center gap-3 pt-2 bg-black/40 p-3 rounded-xl border border-zinc-800">
+            <span className="text-xs text-zinc-300">Custom Limit (MB/s):</span>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              placeholder="e.g. 2"
+              value={customSpeed}
+              onChange={(e) => {
+                setCustomSpeed(e.target.value);
+                if (e.target.value && parseInt(e.target.value) > 0) {
+                  onChangeSpeedLimit && onChangeSpeedLimit(`${e.target.value}M`);
+                }
+              }}
+              className="w-24 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs text-white focus:outline-none focus:border-cyan-500"
+            />
+            <span className="text-xs text-zinc-500">MB/s per stream</span>
+          </div>
+        )}
       </div>
 
       {/* Theme Customization (NEW FEATURE v1.1.0) */}

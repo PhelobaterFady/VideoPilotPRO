@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { getMediaInfo, downloadMediaToFile } = require('./utils/yt');
+const { getMediaInfo, downloadMediaToFile, killProcessTree } = require('./utils/yt');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,6 +10,44 @@ const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Active downloads map: id -> { id, params, status, proc, progress }
+const activeDownloads = new Map();
+
+// SSE Connected Clients for Real-time Progress Broadcasting
+const sseClients = new Set();
+
+function broadcastProgress(data) {
+  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(msg);
+    } catch (e) {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// Server-Sent Events Endpoint for live percentage, speed & ETA
+app.get('/api/download/progress-stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  sseClients.add(res);
+
+  // Send initial state of any current downloads
+  for (const [id, item] of activeDownloads.entries()) {
+    if (item.progress) {
+      res.write(`data: ${JSON.stringify({ id, ...item.progress, status: item.status })}\n\n`);
+    }
+  }
+
+  req.on('close', () => {
+    sseClients.delete(res);
+  });
+});
 
 // Express server EADDRINUSE resilience logic
 let server = null;
@@ -150,21 +188,52 @@ app.post('/api/batch-info', verifyAppSecret, async (req, res) => {
 // Direct download execution endpoint
 app.post('/api/download', verifyAppSecret, async (req, res) => {
   try {
-    const { url, format, audioOnly, title, outputDir, subtitleLang } = req.body;
+    const { id, url, format, audioOnly, title, outputDir, subtitleLang, limitRate } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
 
-    console.log(`Starting download: "${title}" [AudioOnly: ${audioOnly}] to: ${outputDir || 'Default'}`);
+    const downloadId = id || `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const downloadParams = { url, format, audioOnly: !!audioOnly, title, outputDir, subtitleLang, limitRate };
+
+    activeDownloads.set(downloadId, {
+      id: downloadId,
+      params: downloadParams,
+      status: 'downloading',
+      proc: null,
+      progress: { percent: 5, speed: 'Starting...', eta: '--:--' }
+    });
+
+    broadcastProgress({ id: downloadId, status: 'downloading', percent: 5, speed: 'Connecting...', eta: '--:--' });
+
+    console.log(`Starting download: "${title}" [ID: ${downloadId}, LimitRate: ${limitRate || 'Max'}] to: ${outputDir || 'Default'}`);
 
     const result = await downloadMediaToFile({
-      url,
-      format,
-      audioOnly: !!audioOnly,
-      title,
-      outputDir,
-      subtitleLang
+      ...downloadParams,
+      onProcessStart: (proc) => {
+        const item = activeDownloads.get(downloadId);
+        if (item) item.proc = proc;
+      },
+      onProgress: (prog) => {
+        const item = activeDownloads.get(downloadId);
+        if (item && item.status === 'downloading') {
+          item.progress = prog;
+          broadcastProgress({ id: downloadId, ...prog, status: 'downloading' });
+        }
+      }
     });
+
+    if (result.killed) {
+      console.log(`Download execution stopped by user: ${downloadId} -> ${result.status}`);
+      return res.json({
+        success: false,
+        status: result.status,
+        message: `Download was ${result.status}`
+      });
+    }
+
+    activeDownloads.delete(downloadId);
+    broadcastProgress({ id: downloadId, status: 'completed', percent: 100, speed: 'Saved', eta: '0:00' });
 
     return res.json({
       success: true,
@@ -175,6 +244,86 @@ app.post('/api/download', verifyAppSecret, async (req, res) => {
     console.error('Download execution error:', error.message);
     return res.status(500).json({ error: error.message || 'Failed to complete download' });
   }
+});
+
+// Pause download endpoint
+app.post('/api/download/pause', verifyAppSecret, (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Download ID is required' });
+
+  const item = activeDownloads.get(id);
+  if (item) {
+    item.status = 'paused';
+    if (item.proc) {
+      item.proc._userKilled = true;
+      item.proc._userAction = 'paused';
+      killProcessTree(item.proc.pid);
+    }
+  }
+
+  broadcastProgress({ id, status: 'paused', speed: 'Paused' });
+  return res.json({ success: true, message: 'Download paused' });
+});
+
+// Resume download endpoint
+app.post('/api/download/resume', verifyAppSecret, async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Download ID is required' });
+
+  const item = activeDownloads.get(id);
+  if (!item || !item.params) {
+    return res.status(404).json({ error: 'No paused download parameters found for this ID' });
+  }
+
+  item.status = 'downloading';
+  broadcastProgress({ id, status: 'downloading', speed: 'Resuming...', eta: '--:--' });
+
+  try {
+    const result = await downloadMediaToFile({
+      ...item.params,
+      onProcessStart: (proc) => {
+        item.proc = proc;
+      },
+      onProgress: (prog) => {
+        if (item.status === 'downloading') {
+          item.progress = prog;
+          broadcastProgress({ id, ...prog, status: 'downloading' });
+        }
+      }
+    });
+
+    if (result.killed) {
+      return res.json({ success: false, status: result.status });
+    }
+
+    activeDownloads.delete(id);
+    broadcastProgress({ id, status: 'completed', percent: 100, speed: 'Saved', eta: '0:00' });
+    return res.json({ success: true, filePath: result.filePath });
+  } catch (error) {
+    item.status = 'error';
+    broadcastProgress({ id, status: 'error', speed: 'Error' });
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel download endpoint
+app.post('/api/download/cancel', verifyAppSecret, (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Download ID is required' });
+
+  const item = activeDownloads.get(id);
+  if (item) {
+    item.status = 'cancelled';
+    if (item.proc) {
+      item.proc._userKilled = true;
+      item.proc._userAction = 'cancelled';
+      killProcessTree(item.proc.pid);
+    }
+    activeDownloads.delete(id);
+  }
+
+  broadcastProgress({ id, status: 'cancelled', speed: 'Cancelled' });
+  return res.json({ success: true, message: 'Download cancelled' });
 });
 
 // Serve frontend dist static files in production mode

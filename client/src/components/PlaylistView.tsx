@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { MediaInfo, PlaylistItem } from '../types';
-import { ListVideo, Download, CheckSquare, Square, Search, Music, Video, Clock } from 'lucide-react';
+import { ListVideo, Download, CheckSquare, Square, Search, Music, Video, Clock, Filter, ArrowUpDown, Flame } from 'lucide-react';
 import { PlatformBadge } from './PlatformBadge';
 
 interface PlaylistViewProps {
@@ -9,24 +9,56 @@ interface PlaylistViewProps {
 }
 
 export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDownload }) => {
+  const items = playlist.items || [];
   const [selectedItems, setSelectedItems] = useState<string[]>(
-    playlist.items ? playlist.items.map(i => i.id) : []
+    items.map(i => i.id)
   );
   const [searchFilter, setSearchFilter] = useState('');
   const [downloadMode, setDownloadMode] = useState<'video' | 'audio'>('video');
   const [qualityFormat] = useState('bestvideo[height<=720]+bestaudio/best[height<=720]');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'shorts' | 'long'>('all');
+  const [sortOrder, setSortOrder] = useState<'default' | 'shortest' | 'longest'>('default');
 
-  const items = playlist.items || [];
-  const filteredItems = items.filter(item =>
-    item.title.toLowerCase().includes(searchFilter.toLowerCase())
-  );
+  const shortsCount = useMemo(() => {
+    return items.filter(i => i.isShort || (i.duration > 0 && i.duration <= 60)).length;
+  }, [items]);
+
+  const longCount = useMemo(() => {
+    return items.filter(i => !i.isShort && (i.duration === 0 || i.duration > 60)).length;
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    let list = items.filter(item => {
+      const matchesSearch = item.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
+                            item.uploader.toLowerCase().includes(searchFilter.toLowerCase());
+      if (!matchesSearch) return false;
+
+      const isShortItem = item.isShort || (item.duration > 0 && item.duration <= 60);
+      if (typeFilter === 'shorts') return isShortItem;
+      if (typeFilter === 'long') return !isShortItem;
+      return true;
+    });
+
+    if (sortOrder === 'shortest') {
+      list = [...list].sort((a, b) => (a.duration || 0) - (b.duration || 0));
+    } else if (sortOrder === 'longest') {
+      list = [...list].sort((a, b) => (b.duration || 0) - (a.duration || 0));
+    }
+
+    return list;
+  }, [items, searchFilter, typeFilter, sortOrder]);
 
   const toggleSelectAll = () => {
-    if (selectedItems.length === filteredItems.length) {
+    if (selectedItems.length === filteredItems.length && filteredItems.length > 0) {
       setSelectedItems([]);
     } else {
       setSelectedItems(filteredItems.map(i => i.id));
     }
+  };
+
+  const selectTopN = (n: number) => {
+    const topIds = filteredItems.slice(0, n).map(i => i.id);
+    setSelectedItems(topIds);
   };
 
   const toggleSelectItem = (id: string) => {
@@ -51,19 +83,19 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-4 glass-card rounded-3xl p-5 md:p-6 border border-zinc-800 shadow-2xl">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-zinc-800">
+    <div className="w-full max-w-4xl mx-auto my-4 glass-card rounded-3xl p-5 md:p-6 border border-zinc-800 shadow-2xl space-y-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-emerald-400 flex items-center justify-center border border-zinc-700">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-emerald-400 flex items-center justify-center border border-zinc-700 flex-shrink-0">
             <ListVideo className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white">{playlist.title}</h2>
+              <h2 className="text-xl font-bold text-white line-clamp-1">{playlist.title}</h2>
               <PlatformBadge platform={playlist.platform} />
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Playlist containing <span className="font-bold text-emerald-400">{playlist.itemCount || items.length}</span> items
+              Channel / Playlist with <span className="font-bold text-emerald-400">{items.length}</span> items
             </p>
           </div>
         </div>
@@ -101,28 +133,114 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 my-4">
-        <button
-          onClick={toggleSelectAll}
-          className="flex items-center gap-2 text-xs font-semibold text-zinc-300 hover:text-white transition-colors"
-        >
-          {selectedItems.length === filteredItems.length && filteredItems.length > 0 ? (
-            <CheckSquare className="w-4 h-4 text-emerald-400" />
-          ) : (
-            <Square className="w-4 h-4 text-zinc-600" />
-          )}
-          <span>Select All ({filteredItems.length})</span>
-        </button>
+      {/* Smart Channel / Playlist Filter Toolbar */}
+      <div className="bg-black/50 p-3.5 rounded-2xl border border-zinc-800 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Content Type Filter Chips */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Filter:</span>
+            </span>
+            <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+              <button
+                onClick={() => setTypeFilter('all')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  typeFilter === 'all' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                All ({items.length})
+              </button>
+              <button
+                onClick={() => setTypeFilter('shorts')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                  typeFilter === 'shorts' ? 'bg-rose-500 text-white' : 'text-zinc-400 hover:text-rose-400'
+                }`}
+              >
+                <Flame className="w-3 h-3" />
+                <span>Shorts ({shortsCount})</span>
+              </button>
+              <button
+                onClick={() => setTypeFilter('long')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  typeFilter === 'long' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-emerald-400'
+                }`}
+              >
+                Videos ({longCount})
+              </button>
+            </div>
+          </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400" />
-          <input
-            type="text"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Filter playlist tracks..."
-            className="w-full bg-zinc-950 text-zinc-200 text-xs rounded-xl pl-9 pr-3 py-2 border border-zinc-800 focus:outline-none focus:border-emerald-500"
-          />
+          {/* Duration Sorting */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
+              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Sort:</span>
+            </span>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as any)}
+              className="bg-zinc-900 text-zinc-200 text-xs rounded-xl px-3 py-1.5 border border-zinc-800 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="default">Default Order</option>
+              <option value="shortest">Shortest First ⏱️</option>
+              <option value="longest">Longest First ⌛</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Quick Selection Chips & Search */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 border-t border-zinc-800/80">
+          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+            <button
+              onClick={toggleSelectAll}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1"
+            >
+              {selectedItems.length === filteredItems.length && filteredItems.length > 0 ? (
+                <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Square className="w-3.5 h-3.5 text-zinc-500" />
+              )}
+              <span>All ({filteredItems.length})</span>
+            </button>
+            <button
+              onClick={() => selectTopN(5)}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+            >
+              Top 5
+            </button>
+            <button
+              onClick={() => selectTopN(10)}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+            >
+              Top 10
+            </button>
+            <button
+              onClick={() => selectTopN(25)}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+            >
+              Top 25
+            </button>
+            {selectedItems.length > 0 && (
+              <button
+                onClick={() => setSelectedItems([])}
+                className="px-2 py-1 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="relative w-full sm:w-60">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search in tracks..."
+              className="w-full bg-zinc-900 text-zinc-200 text-xs rounded-xl pl-8 pr-3 py-1.5 border border-zinc-800 focus:outline-none focus:border-cyan-500"
+            />
+          </div>
         </div>
       </div>
 

@@ -23,6 +23,7 @@ export interface PlaylistItem {
   duration: number;
   uploader: string;
   thumbnail: string;
+  isShort?: boolean;
 }
 
 export interface MediaInfo {
@@ -52,13 +53,14 @@ export interface DownloadQueueItem {
   progress: number;
   speed?: string | null;
   eta?: string | null;
-  status: 'queued' | 'downloading' | 'completed' | 'error';
+  status: 'queued' | 'downloading' | 'paused' | 'cancelled' | 'completed' | 'error';
   errorMessage?: string;
   downloadUrl?: string;
   thumbnail?: string;
   outputDir?: string;
   filePath?: string;
   subtitleLang?: string;
+  limitRate?: string;
 }
 
 export interface HistoryItem {

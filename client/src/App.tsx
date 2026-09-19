@@ -93,6 +93,14 @@ export function App() {
     localStorage.setItem('videopilot_theme', activeTheme);
   }, [activeTheme]);
 
+  const [speedLimit, setSpeedLimit] = useState<string>(() => {
+    return localStorage.getItem('videopilot_speed_limit') || 'unlimited';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('videopilot_speed_limit', speedLimit);
+  }, [speedLimit]);
+
   const handleTriggerUpdate = (downloadUrl?: string) => {
     if (updateInfo?.url === 'ready') {
       if ((window as any).require) {
@@ -240,6 +248,50 @@ export function App() {
     };
   }, [dismissedClipboardUrl, currentMedia]);
 
+  // Real-time SSE listener for yt-dlp percentage, speed, and ETA
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`${API_BASE_URL}/api/download/progress-stream`);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (!data || !data.id) return;
+
+          setDownloadQueue(prev =>
+            prev.map(item => {
+              if (item.id !== data.id) return item;
+
+              const updated: DownloadQueueItem = { ...item };
+              if (typeof data.percent === 'number') {
+                updated.progress = data.percent;
+              }
+              if (data.speed !== undefined) {
+                updated.speed = data.speed;
+              }
+              if (data.eta !== undefined) {
+                updated.eta = data.eta;
+              }
+              if (data.status && data.status !== updated.status) {
+                updated.status = data.status;
+              }
+              return updated;
+            })
+          );
+        } catch (e) {}
+      };
+    } catch (err) {
+      console.warn('SSE connection failed:', err);
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, []);
+
   const handleOpenFile = async (filePath: string) => {
     if (!filePath) return;
     if ((window as any).require) {
@@ -343,13 +395,14 @@ export function App() {
       format,
       quality: isAudio ? 'MP3 320kbps' : (format.toUpperCase() || 'Best Quality'),
       isAudio,
-      progress: 20,
-      speed: 'Turbo fragments...',
+      progress: 5,
+      speed: 'Connecting...',
       eta: '--:--',
       status: 'downloading',
       thumbnail: itemThumbnail,
       outputDir: downloadPath,
-      subtitleLang
+      subtitleLang,
+      limitRate: speedLimit
     };
 
     setDownloadQueue(prev => [newQueueItem, ...prev]);
@@ -362,17 +415,27 @@ export function App() {
           'x-app-secret': APP_SECRET
         },
         body: JSON.stringify({
+          id: queueId,
           url,
           format,
           audioOnly: isAudio,
           title,
           outputDir: downloadPath,
-          subtitleLang
+          subtitleLang,
+          limitRate: speedLimit
         })
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!res.ok) {
+        throw new Error(json.error || 'Download failed');
+      }
+
+      if (json.status === 'paused' || json.status === 'cancelled') {
+        return;
+      }
+
+      if (!json.success) {
         throw new Error(json.error || 'Download failed');
       }
 
@@ -417,8 +480,93 @@ export function App() {
     } catch (err: any) {
       console.error('Download execution error:', err);
       setDownloadQueue(prev =>
-        prev.map(q => q.id === queueId ? { ...q, status: 'error', errorMessage: err.message || 'Download failed' } : q)
+        prev.map(q => q.id === queueId && q.status === 'downloading' ? { ...q, status: 'error', errorMessage: err.message || 'Download failed' } : q)
       );
+    }
+  };
+
+  const handlePauseDownload = async (id: string) => {
+    try {
+      setDownloadQueue(prev =>
+        prev.map(q => q.id === id ? { ...q, status: 'paused', speed: 'Paused' } : q)
+      );
+      await fetch(`${API_BASE_URL}/api/download/pause`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ id })
+      });
+    } catch (e) {
+      console.warn('Failed to pause download:', e);
+    }
+  };
+
+  const handleResumeDownload = async (id: string) => {
+    try {
+      const item = downloadQueue.find(q => q.id === id);
+      if (!item) return;
+
+      setDownloadQueue(prev =>
+        prev.map(q => q.id === id ? { ...q, status: 'downloading', speed: 'Resuming...' } : q)
+      );
+
+      const res = await fetch(`${API_BASE_URL}/api/download/resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ id })
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        const savedFilePath = json.filePath || '';
+        setDownloadQueue(prev =>
+          prev.map(q => q.id === id ? {
+            ...q,
+            progress: 100,
+            status: 'completed',
+            speed: 'Saved',
+            filePath: savedFilePath
+          } : q)
+        );
+
+        const newHistoryItem: HistoryItem = {
+          id,
+          title: item.title,
+          url: item.url,
+          platform: item.platform,
+          type: item.isAudio ? 'audio' : 'video',
+          downloadDate: new Date().toISOString(),
+          format: item.isAudio ? 'MP3' : 'MP4',
+          thumbnail: item.thumbnail || '',
+          filePath: savedFilePath
+        };
+        setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
+      }
+    } catch (e) {
+      console.warn('Failed to resume download:', e);
+    }
+  };
+
+  const handleCancelDownload = async (id: string) => {
+    try {
+      setDownloadQueue(prev =>
+        prev.map(q => q.id === id ? { ...q, status: 'cancelled', speed: 'Cancelled' } : q)
+      );
+      await fetch(`${API_BASE_URL}/api/download/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ id })
+      });
+    } catch (e) {
+      console.warn('Failed to cancel download:', e);
     }
   };
 
@@ -647,6 +795,9 @@ export function App() {
                 onClearCompleted={() => setDownloadQueue(prev => prev.filter(i => i.status !== 'completed'))}
                 onOpenFile={handleOpenFile}
                 onShowInFolder={handleShowInFolder}
+                onPauseDownload={handlePauseDownload}
+                onResumeDownload={handleResumeDownload}
+                onCancelDownload={handleCancelDownload}
               />
             </div>
           )}
@@ -678,6 +829,8 @@ export function App() {
               onDownloadUpdate={handleTriggerUpdate}
               activeTheme={activeTheme}
               onSelectTheme={setActiveTheme}
+              speedLimit={speedLimit}
+              onChangeSpeedLimit={setSpeedLimit}
             />
           )}
         </main>
