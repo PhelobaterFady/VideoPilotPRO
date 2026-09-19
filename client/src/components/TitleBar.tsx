@@ -32,7 +32,7 @@ export const TitleBar: React.FC = () => {
         <div className="w-5 h-5 rounded-md bg-emerald-500 flex items-center justify-center text-black font-bold shadow">
           <Download className="w-3.5 h-3.5 stroke-[2.5]" />
         </div>
-        <span className="font-bold text-white tracking-wide">VideoPilot Pro</span>
+        <span className="font-bold text-white tracking-wide">Video Pilot Pro</span>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-zinc-800">
           Desktop Edition
         </span>

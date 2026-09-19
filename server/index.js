@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { getMediaInfo, downloadMediaToFile } = require('./utils/yt');
 
 const app = express();
@@ -32,6 +33,73 @@ app.get('/api/version', (req, res) => {
     releaseDate: '2026-09-20',
     mandatory: false
   });
+});
+
+// Media streaming endpoint supporting HTTP 206 Partial Content (instant in-app playback & scrubbing)
+app.get('/api/stream', (req, res) => {
+  try {
+    const rawFilePath = req.query.file;
+    if (!rawFilePath) {
+      return res.status(400).send('File path parameter is required');
+    }
+
+    const decodedPath = decodeURIComponent(rawFilePath);
+    const normalizedPath = path.normalize(decodedPath);
+
+    if (!fs.existsSync(normalizedPath)) {
+      console.warn('Stream file not found:', normalizedPath);
+      return res.status(404).send('File not found on disk');
+    }
+
+    const stat = fs.statSync(normalizedPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    const ext = path.extname(normalizedPath).toLowerCase();
+    const mimeMap = {
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mkv': 'video/x-matroska',
+      '.avi': 'video/x-msvideo',
+      '.mov': 'video/quicktime',
+      '.mp3': 'audio/mpeg',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg',
+      '.flac': 'audio/flac'
+    };
+    const contentType = mimeMap[ext] || 'application/octet-stream';
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = end - start + 1;
+      const fileStream = fs.createReadStream(normalizedPath, { start, end });
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': contentType,
+      };
+      res.writeHead(206, head);
+      fileStream.pipe(res);
+    } else {
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes'
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(normalizedPath).pipe(res);
+    }
+  } catch (err) {
+    console.error('Streaming error:', err.message);
+    if (!res.headersSent) {
+      res.status(500).send('Streaming error: ' + err.message);
+    }
+  }
 });
 
 // Single media info extraction endpoint
@@ -118,12 +186,12 @@ app.get('*', (req, res) => {
 });
 
 server = app.listen(PORT, () => {
-  console.log(`VideoPilot Pro Express Server running on port ${PORT}`);
+  console.log(`Video Pilot Pro Express Server running on port ${PORT}`);
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.warn(`Port ${PORT} is already in use by active VideoPilot Pro instance. Continuing backend execution.`);
+    console.warn(`Port ${PORT} is already in use by active Video Pilot Pro instance. Continuing backend execution.`);
   } else {
     console.error('Server error:', err);
   }

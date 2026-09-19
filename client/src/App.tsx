@@ -537,7 +537,7 @@ export function App() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-emerald-300">New Update Available! ({updateInfo.version || 'v1.2.0'})</h4>
-                  <p className="text-xs text-emerald-400/80">A new version of VideoPilot Pro is ready. Click below to upgrade automatically.</p>
+                  <p className="text-xs text-emerald-400/80">A new version of Video Pilot Pro is ready. Click below to upgrade automatically.</p>
                 </div>
               </div>
               <button

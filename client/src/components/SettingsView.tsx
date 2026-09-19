@@ -229,7 +229,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ) : updateStatus.isLatest ? (
               <div className="p-4 rounded-2xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>You are running the latest version of VideoPilot Pro (v{currentVersion}).</span>
+                <span>You are running the latest version of Video Pilot Pro (v{currentVersion}).</span>
               </div>
             ) : (
               <div className="p-4 rounded-2xl border bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border-emerald-500/50 text-emerald-200 text-xs font-medium space-y-3 shadow-lg">

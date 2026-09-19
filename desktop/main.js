@@ -2,6 +2,13 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, Notification } =
 const path = require('path');
 const fs = require('fs');
 
+// Ensure the application name is Video Pilot Pro across all system dialogs and task managers
+app.name = 'Video Pilot Pro';
+app.setName('Video Pilot Pro');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.videopilot.pro');
+}
+
 let autoUpdater = null;
 let isUpdateDownloaded = false;
 let tray = null;
@@ -34,7 +41,7 @@ function createTray() {
       tray = new Tray(iconPath);
       const contextMenu = Menu.buildFromTemplate([
         {
-          label: 'Open VideoPilot Pro',
+          label: 'Open Video Pilot Pro',
           click: () => {
             if (mainWindow) {
               mainWindow.show();
@@ -53,14 +60,14 @@ function createTray() {
         },
         { type: 'separator' },
         {
-          label: 'Quit VideoPilot Pro',
+          label: 'Quit Video Pilot Pro',
           click: () => {
             isQuitting = true;
             app.quit();
           }
         }
       ]);
-      tray.setToolTip('VideoPilot Pro Universal Downloader');
+      tray.setToolTip('Video Pilot Pro');
       tray.setContextMenu(contextMenu);
       tray.on('double-click', () => {
         if (mainWindow) {
@@ -82,7 +89,7 @@ function createWindow() {
     minHeight: 650,
     frame: false,
     titleBarStyle: 'hidden',
-    title: 'VideoPilot Pro',
+    title: 'Video Pilot Pro',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: true,
@@ -229,7 +236,7 @@ ipcMain.handle('show-notification', async (_event, payload) => {
     if (Notification.isSupported()) {
       const iconPath = path.join(__dirname, 'icon.png');
       const notif = new Notification({
-        title: payload?.title || 'VideoPilot Pro',
+        title: payload?.title || 'Video Pilot Pro',
         body: payload?.body || 'Media download completed successfully!',
         icon: fs.existsSync(iconPath) ? iconPath : undefined
       });

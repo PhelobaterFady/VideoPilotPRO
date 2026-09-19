@@ -1,8 +1,8 @@
 {
   "name": "videopilot-pro",
   "version": "1.2.0",
-  "author": "VideoPilot Pro Team",
-  "description": "VideoPilot Pro Universal Downloader PC Edition",
+  "author": "Video Pilot Pro Team",
+  "description": "Video Pilot Pro Universal Downloader PC Edition",
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
@@ -18,11 +18,12 @@
   },
   "build": {
     "appId": "com.videopilot.pro",
-    "productName": "VideoPilot Pro",
+    "productName": "Video Pilot Pro",
     "directories": {
       "output": "dist_installer"
     },
     "win": {
+      "icon": "desktop/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -38,7 +39,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "VideoPilot Pro",
+      "shortcutName": "Video Pilot Pro",
       "differentialPackage": true,
       "packElevateHelper": false
     },
