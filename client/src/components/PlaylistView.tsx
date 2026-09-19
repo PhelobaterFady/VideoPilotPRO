@@ -15,7 +15,7 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
   );
   const [searchFilter, setSearchFilter] = useState('');
   const [downloadMode, setDownloadMode] = useState<'video' | 'audio'>('video');
-  const [qualityFormat] = useState('bestvideo[height<=720]+bestaudio/best[height<=720]');
+  const [qualityFormat, setQualityFormat] = useState('bestvideo+bestaudio/best');
   const [typeFilter, setTypeFilter] = useState<'all' | 'shorts' | 'long'>('all');
   const [sortOrder, setSortOrder] = useState<'default' | 'shortest' | 'longest'>('default');
 
@@ -121,6 +121,20 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
               <span>Audio MP3</span>
             </button>
           </div>
+
+          {/* Quality Selector for Video */}
+          {downloadMode === 'video' && (
+            <select
+              value={qualityFormat}
+              onChange={(e) => setQualityFormat(e.target.value)}
+              className="bg-zinc-950 text-emerald-400 font-bold text-xs px-3 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="bestvideo+bestaudio/best">👑 Highest (4K / 1080p Max)</option>
+              <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]/best">💎 Full HD 1080p</option>
+              <option value="bestvideo[height<=720]+bestaudio/best[height<=720]/best">⚡ High Definition 720p</option>
+              <option value="bestvideo[height<=480]+bestaudio/best[height<=480]/best">📦 Standard 480p</option>
+            </select>
+          )}
 
           <button
             onClick={handleStartBatchDownload}

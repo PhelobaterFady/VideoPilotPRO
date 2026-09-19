@@ -12,11 +12,15 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
   media,
   onDownload
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<string>(
-    media.formats && media.formats.length > 0 ? media.formats[0].formatId : 'best'
-  );
+  const initialFormat = media.formats?.find(f => f.isVideo)?.formatId || (media.formats && media.formats[0] ? media.formats[0].formatId : 'best');
+  const [selectedFormat, setSelectedFormat] = useState<string>(initialFormat);
   const [selectedSubtitle, setSelectedSubtitle] = useState<string>('none');
   const [copied, setCopied] = useState(false);
+
+  React.useEffect(() => {
+    const bestFmt = media.formats?.find(f => f.isVideo)?.formatId || (media.formats && media.formats[0] ? media.formats[0].formatId : 'best');
+    setSelectedFormat(bestFmt);
+  }, [media.id, media.webpage_url]);
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return 'N/A';

@@ -7,13 +7,18 @@ try {
   ffmpegPath = require('ffmpeg-static');
 } catch (e) {
   // Fallback lookups
+}
+
+if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
   const candidatePaths = [
     path.join(__dirname, '../node_modules/ffmpeg-static/ffmpeg.exe'),
     path.join(__dirname, '../../server/node_modules/ffmpeg-static/ffmpeg.exe'),
-    path.join(__dirname, '../../node_modules/ffmpeg-static/ffmpeg.exe')
+    path.join(__dirname, '../../node_modules/ffmpeg-static/ffmpeg.exe'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked/server/node_modules/ffmpeg-static/ffmpeg.exe'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg.exe')
   ];
   for (const p of candidatePaths) {
-    if (fs.existsSync(p)) {
+    if (p && fs.existsSync(p)) {
       ffmpegPath = p;
       break;
     }
@@ -74,31 +79,23 @@ function parseAvailableFormats(data) {
   const formats = [];
   const rawFormats = data.formats || [];
 
-  // 1. Studio Quality MP3 Audio Option
   const bestAudio = rawFormats.filter(f => f.vcodec === 'none' && f.acodec !== 'none').pop();
   const audioSize = bestAudio?.filesize || bestAudio?.filesize_approx || (data.duration ? Math.round(data.duration * 320 * 1024 / 8) : null);
+
+  // 1. Highest Video Quality Option FIRST (Defaults to Max Quality 4K / 2K / 1080p)
+  const rawTotalSize = data.filesize || data.filesize_approx;
   formats.push({
-    formatId: 'audio-best',
-    label: 'Audio MP3 Studio Quality (320kbps)',
-    ext: 'mp3',
-    quality: '320kbps',
-    isVideo: false,
-    filesize: audioSize,
-    filesizeFormatted: formatBytes(audioSize) || '~5.2 MB'
+    formatId: 'bestvideo+bestaudio/best',
+    label: 'Video MP4 👑 Highest Quality Available (Max / 4K / 1080p)',
+    ext: 'mp4',
+    quality: 'Highest Available (Max)',
+    fps: 60,
+    isVideo: true,
+    filesize: rawTotalSize,
+    filesizeFormatted: formatBytes(rawTotalSize) || 'Auto Max'
   });
 
-  // 2. High Quality AAC/M4A
-  formats.push({
-    formatId: 'audio-m4a',
-    label: 'Audio M4A / AAC Clean (128kbps)',
-    ext: 'm4a',
-    quality: '128kbps',
-    isVideo: false,
-    filesize: audioSize ? Math.round(audioSize * 0.45) : null,
-    filesizeFormatted: formatBytes(audioSize ? Math.round(audioSize * 0.45) : null)
-  });
-
-  // 3. Multi-Resolution Video Parsing (4K, 2K, 1080p, 720p, 480p, 360p)
+  // 2. Multi-Resolution Video Parsing (4K, 2K, 1080p, 720p, 480p, 360p)
   const targetResolutions = [
     { height: 2160, label: '4K Ultra HD', quality: '2160p' },
     { height: 1440, label: '2K Quad HD', quality: '1440p' },
@@ -128,19 +125,27 @@ function parseAvailableFormats(data) {
     }
   }
 
-  // 4. Guaranteed Best Quality Fallback
-  if (formats.filter(f => f.isVideo).length === 0) {
-    const rawTotalSize = data.filesize || data.filesize_approx;
-    formats.push({
-      formatId: 'best',
-      label: 'Video MP4 Best Quality Available',
-      ext: 'mp4',
-      quality: 'Best',
-      isVideo: true,
-      filesize: rawTotalSize,
-      filesizeFormatted: formatBytes(rawTotalSize)
-    });
-  }
+  // 3. Studio Quality MP3 Audio Option
+  formats.push({
+    formatId: 'audio-best',
+    label: 'Audio MP3 Studio Quality (320kbps)',
+    ext: 'mp3',
+    quality: '320kbps',
+    isVideo: false,
+    filesize: audioSize,
+    filesizeFormatted: formatBytes(audioSize) || '~5.2 MB'
+  });
+
+  // 4. High Quality AAC/M4A
+  formats.push({
+    formatId: 'audio-m4a',
+    label: 'Audio M4A / AAC Clean (128kbps)',
+    ext: 'm4a',
+    quality: '128kbps',
+    isVideo: false,
+    filesize: audioSize ? Math.round(audioSize * 0.45) : null,
+    filesizeFormatted: formatBytes(audioSize ? Math.round(audioSize * 0.45) : null)
+  });
 
   return formats;
 }
@@ -389,10 +394,17 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       } else {
         args.push('-f', 'ba/b');
       }
-    } else if (format && format !== 'best') {
-      args.push('-f', format);
     } else {
-      args.push('-f', 'b/best');
+      // High-Definition & 4K Video handling
+      if (format && format !== 'best') {
+        args.push('-f', format);
+      } else {
+        // True Highest Quality Available with video and audio merged
+        args.push('-f', 'bestvideo+bestaudio/best');
+      }
+      if (hasFfmpeg) {
+        args.push('--merge-output-format', 'mp4');
+      }
     }
 
     if (!fs.existsSync(outputDir)) {

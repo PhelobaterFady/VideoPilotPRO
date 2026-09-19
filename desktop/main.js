@@ -103,17 +103,17 @@ function createWindow() {
   // Launch application in full screen (maximized)
   mainWindow.maximize();
 
-  const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
   const relativeHtmlPath = path.join(__dirname, '..', 'client', 'dist', 'index.html');
+  const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
 
-  mainWindow.loadFile(appRootHtmlPath).catch((err) => {
-    console.warn('appRootHtmlPath load failed, trying relativeHtmlPath:', err.message);
-    mainWindow.loadFile(relativeHtmlPath).catch((relErr) => {
-      console.warn('relativeHtmlPath load failed, loading dev URL:', relErr.message);
-      const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
-      mainWindow.loadURL(startUrl);
-    });
-  });
+  if (fs.existsSync(relativeHtmlPath)) {
+    mainWindow.loadFile(relativeHtmlPath);
+  } else if (fs.existsSync(appRootHtmlPath)) {
+    mainWindow.loadFile(appRootHtmlPath);
+  } else {
+    const startUrl = process.env.CLIENT_URL || 'http://localhost:5000';
+    mainWindow.loadURL(startUrl);
+  }
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Page load failed:', errorCode, errorDescription);
