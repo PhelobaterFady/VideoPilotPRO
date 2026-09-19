@@ -1,7 +1,7 @@
 import React from 'react';
 import type { DownloadQueueItem } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Clock, Folder, ExternalLink, Pause, Play, X } from 'lucide-react';
+import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Clock, Folder, ExternalLink, Pause, Play, X, Smartphone } from 'lucide-react';
 
 interface ProgressQueueProps {
   queue: DownloadQueueItem[];
@@ -11,6 +11,7 @@ interface ProgressQueueProps {
   onPauseDownload?: (id: string) => void;
   onResumeDownload?: (id: string) => void;
   onCancelDownload?: (id: string) => void;
+  onSendToPhone?: (filePath: string, title: string) => void;
 }
 
 export const ProgressQueue: React.FC<ProgressQueueProps> = ({
@@ -20,7 +21,8 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
   onShowInFolder,
   onPauseDownload,
   onResumeDownload,
-  onCancelDownload
+  onCancelDownload,
+  onSendToPhone
 }) => {
   if (queue.length === 0) return null;
 
@@ -183,6 +185,16 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
 
                 {item.status === 'completed' && (
                   <div className="flex items-center gap-2">
+                    {onSendToPhone && item.filePath && (
+                      <button
+                        onClick={() => onSendToPhone(item.filePath!, item.title)}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-xs font-semibold border border-emerald-500/30 transition-all flex items-center gap-1 shadow-sm"
+                        title="Send to Phone via Wi-Fi QR Code"
+                      >
+                        <Smartphone className="w-3 h-3 text-emerald-400" />
+                        <span>Phone</span>
+                      </button>
+                    )}
                     {onOpenFile && item.filePath && (
                       <button
                         onClick={() => onOpenFile(item.filePath!)}

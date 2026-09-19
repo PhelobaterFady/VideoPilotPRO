@@ -13,6 +13,8 @@ import { SettingsView } from './components/SettingsView';
 import type { ThemeType } from './components/SettingsView';
 import { ToastContainer } from './components/Toast';
 import type { ToastItem } from './components/Toast';
+import { QrShareModal } from './components/QrShareModal';
+import { TranscriptModal } from './components/TranscriptModal';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud } from 'lucide-react';
 
@@ -127,6 +129,109 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('videopilot_speed_limit', speedLimit);
   }, [speedLimit]);
+
+  // QR Share Modal State
+  const [qrModalData, setQrModalData] = useState<{
+    isOpen: boolean;
+    qrDataUrl: string;
+    transferUrl: string;
+    fileName: string;
+    localIp: string;
+  }>({
+    isOpen: false,
+    qrDataUrl: '',
+    transferUrl: '',
+    fileName: '',
+    localIp: ''
+  });
+
+  // Transcript Modal State
+  const [transcriptModalData, setTranscriptModalData] = useState<{
+    isOpen: boolean;
+    media: MediaInfo | null;
+  }>({
+    isOpen: false,
+    media: null
+  });
+
+  // Wi-Fi QR Transfer to Mobile
+  const handleSendToPhone = async (filePath: string, title: string) => {
+    try {
+      addToast('info', 'Generating mobile transfer QR Code...', 'Local Wi-Fi Transfer');
+      const res = await fetch(`${API_BASE_URL}/api/transfer/generate-qr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ filePath, title })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to generate QR');
+
+      setQrModalData({
+        isOpen: true,
+        qrDataUrl: json.qrDataUrl,
+        transferUrl: json.transferUrl,
+        fileName: json.fileName,
+        localIp: json.localIp
+      });
+      addToast('success', 'QR Code ready! Scan with your mobile camera to download via Wi-Fi.', 'Transfer Link Generated');
+    } catch (err: any) {
+      addToast('error', err.message || 'Could not start mobile transfer', 'Transfer Error');
+    }
+  };
+
+  // Ultra HD Thumbnail/Poster Saver
+  const handleSavePoster = async (thumbnailUrl: string, title: string) => {
+    if (!downloadPath || downloadPath.trim() === '') {
+      addToast('error', 'Please configure your download folder in Settings first!', 'Save Location Missing');
+      return;
+    }
+    try {
+      addToast('info', 'Downloading Ultra HD Poster image...', 'Poster Download');
+      const res = await fetch(`${API_BASE_URL}/api/save-thumbnail`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ thumbnailUrl, title, outputDir: downloadPath })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to save poster');
+      addToast('success', `Saved HD Poster to: ${json.filePath}`, 'Poster Saved');
+    } catch (err: any) {
+      addToast('error', err.message || 'Failed to save poster', 'Poster Error');
+    }
+  };
+
+  // Save Transcript as TXT or SRT file
+  const handleSaveTranscript = async (title: string, content: string, format: 'txt' | 'srt') => {
+    if (!downloadPath || downloadPath.trim() === '') {
+      addToast('error', 'Please configure your download folder in Settings first!', 'Save Location Missing');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/save-transcript`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({ title, content, format, outputDir: downloadPath })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to save transcript');
+      addToast('success', `Saved transcript as .${format.toUpperCase()} to downloads folder!`, 'Transcript Saved');
+    } catch (err: any) {
+      addToast('error', err.message || 'Failed to save transcript', 'Save Error');
+    }
+  };
+
+  const handleOpenTranscript = (media: MediaInfo) => {
+    setTranscriptModalData({ isOpen: true, media });
+  };
 
   const handleTriggerUpdate = (downloadUrl?: string) => {
     if (updateInfo?.url === 'ready') {
@@ -403,6 +508,8 @@ export function App() {
     isAudio: boolean,
     title: string,
     subtitleLang?: string,
+    clipStart?: string,
+    clipEnd?: string,
     platform: PlatformType = (currentMedia?.platform || 'unknown') as PlatformType,
     customThumbnail?: string
   ) => {
@@ -414,13 +521,18 @@ export function App() {
     const itemThumbnail = customThumbnail || (currentMedia && currentMedia.webpage_url === url ? currentMedia.thumbnail : '') || customThumbnail || '';
     const queueId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
+    const isClipped = !!((clipStart && clipStart.trim() !== '') || (clipEnd && clipEnd.trim() !== ''));
+    const displayQuality = isClipped
+      ? `Clip [${clipStart || '0'} -> ${clipEnd || 'End'}] (${isAudio ? 'MP3' : (format.toUpperCase() || 'Best')})`
+      : (isAudio ? 'MP3 320kbps' : (format.toUpperCase() || 'Best Quality'));
+
     const newQueueItem: DownloadQueueItem = {
       id: queueId,
-      title,
+      title: isClipped ? `[Clip] ${title}` : title,
       url,
       platform,
       format,
-      quality: isAudio ? 'MP3 320kbps' : (format.toUpperCase() || 'Best Quality'),
+      quality: displayQuality,
       isAudio,
       progress: 5,
       speed: 'Connecting...',
@@ -447,10 +559,12 @@ export function App() {
           url,
           format,
           audioOnly: isAudio,
-          title,
+          title: isClipped ? `[Clip] ${title}` : title,
           outputDir: downloadPath,
           subtitleLang,
-          limitRate: speedLimit
+          limitRate: speedLimit,
+          clipStart,
+          clipEnd
         })
       });
 
@@ -860,6 +974,8 @@ export function App() {
                     <VideoPreviewCard
                       media={currentMedia}
                       onDownload={triggerSingleDownload}
+                      onOpenTranscript={handleOpenTranscript}
+                      onSavePoster={handleSavePoster}
                     />
                   )}
                 </>
@@ -873,6 +989,7 @@ export function App() {
                 onPauseDownload={handlePauseDownload}
                 onResumeDownload={handleResumeDownload}
                 onCancelDownload={handleCancelDownload}
+                onSendToPhone={handleSendToPhone}
               />
             </div>
           )}
@@ -898,6 +1015,7 @@ export function App() {
                   setHistory(prev => prev.filter(i => i.id !== id));
                   addToast('info', 'Item removed from download history');
                 }}
+                onSendToPhone={handleSendToPhone}
               />
             </div>
           )}
@@ -923,6 +1041,30 @@ export function App() {
           )}
         </main>
       </div>
+
+      {/* QR Code Wi-Fi Mobile Share Modal */}
+      <QrShareModal
+        isOpen={qrModalData.isOpen}
+        onClose={() => setQrModalData(prev => ({ ...prev, isOpen: false }))}
+        qrDataUrl={qrModalData.qrDataUrl}
+        transferUrl={qrModalData.transferUrl}
+        fileName={qrModalData.fileName}
+        localIp={qrModalData.localIp}
+      />
+
+      {/* Transcript & Subtitles Modal */}
+      {transcriptModalData.isOpen && transcriptModalData.media && (
+        <TranscriptModal
+          isOpen={transcriptModalData.isOpen}
+          onClose={() => setTranscriptModalData({ isOpen: false, media: null })}
+          videoTitle={transcriptModalData.media.title}
+          videoUrl={transcriptModalData.media.webpage_url || transcriptModalData.media.id}
+          availableSubtitles={transcriptModalData.media.subtitles}
+          onSaveTranscript={handleSaveTranscript}
+          apiBaseUrl={API_BASE_URL}
+          appSecret={APP_SECRET}
+        />
+      )}
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 

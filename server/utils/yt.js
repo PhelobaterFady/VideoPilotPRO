@@ -324,6 +324,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
 
   let limitRate = null;
   let onProcessStart = null;
+  let clipStart = null;
+  let clipEnd = null;
 
   if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
     url = urlOrOptions.url;
@@ -337,6 +339,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     onComplete = urlOrOptions.onComplete;
     onError = urlOrOptions.onError;
     onProcessStart = urlOrOptions.onProcessStart;
+    clipStart = urlOrOptions.clipStart || null;
+    clipEnd = urlOrOptions.clipEnd || null;
   } else {
     url = urlOrOptions;
     format = formatArg || 'best';
@@ -358,6 +362,13 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       '--windows-filenames',
       '--continue'
     ];
+
+    // Video Section Trimming / Clipping
+    if ((clipStart && clipStart.trim() !== '') || (clipEnd && clipEnd.trim() !== '')) {
+      const s = (clipStart && clipStart.trim() !== '') ? clipStart.trim() : '0';
+      const e = (clipEnd && clipEnd.trim() !== '') ? clipEnd.trim() : 'inf';
+      args.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
+    }
 
     // Bandwidth Speed Limiter
     if (limitRate && limitRate !== 'unlimited' && limitRate.trim() !== '') {
@@ -518,6 +529,106 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   });
 }
 
+/**
+ * Extract subtitles and plain-text transcript from video
+ */
+function extractTranscript(url, lang = 'en') {
+  return new Promise((resolve, reject) => {
+    const tempDir = path.join(process.env.TEMP || '.', `transcript_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
+    try {
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+    } catch (e) {}
+
+    const outPattern = path.join(tempDir, 'sub.%(ext)s').replace(/\\/g, '/');
+    const args = [
+      '-m', 'yt_dlp',
+      '--js-runtimes', 'node',
+      '--skip-download',
+      '--write-subs',
+      '--write-auto-subs',
+      '--sub-langs', `${lang || 'en'},en.*,ar.*,all`,
+      '--sub-format', 'srt/vtt',
+      '-o', outPattern,
+      url
+    ];
+
+    execFile('python', args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
+      try {
+        if (!fs.existsSync(tempDir)) {
+          return reject(new Error('Subtitles extraction failed.'));
+        }
+        const files = fs.readdirSync(tempDir);
+        const subFile = files.find(f => f.endsWith('.srt') || f.endsWith('.vtt'));
+        if (!subFile) {
+          try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
+          return reject(new Error('No captions or transcripts were found for this video in the selected language.'));
+        }
+
+        const rawContent = fs.readFileSync(path.join(tempDir, subFile), 'utf-8');
+        // Clean out WebVTT headers and timecode metadata for readable plain text
+        const plainText = rawContent
+          .replace(/WEBVTT[\s\S]*?\n\n/g, '')
+          .replace(/\d+\r?\n\d{2}:\d{2}:\d{2}[\d,.:]* --> \d{2}:\d{2}:\d{2}[\d,.:]*[^\n]*/g, '')
+          .replace(/<[^>]+>/g, '')
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l.length > 0 && !/^\d+$/.test(l))
+          .join(' ')
+          .replace(/\s+/g, ' ');
+
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
+
+        resolve({
+          srt: rawContent,
+          text: plainText,
+          subFile
+        });
+      } catch (err) {
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * Save Ultra HD / Max Resolution thumbnail directly to disk
+ */
+async function downloadThumbnailFile(thumbnailUrl, title, outputDir) {
+  try {
+    if (!thumbnailUrl) throw new Error('No thumbnail URL provided');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const safeTitle = (title || 'Video')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim()
+      .slice(0, 80);
+    const targetFile = path.join(outputDir, `${safeTitle} - Poster.jpg`);
+
+    const res = await fetch(thumbnailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download image (HTTP ${res.status})`);
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    fs.writeFileSync(targetFile, Buffer.from(arrayBuffer));
+
+    return { success: true, filePath: targetFile };
+  } catch (err) {
+    console.error('Thumbnail download error:', err.message);
+    throw err;
+  }
+}
+
 function killProcessTree(pid) {
   if (!pid) return;
   try {
@@ -535,5 +646,7 @@ module.exports = {
   detectPlatform,
   getMediaInfo,
   downloadMediaToFile,
+  extractTranscript,
+  downloadThumbnailFile,
   killProcessTree
 };

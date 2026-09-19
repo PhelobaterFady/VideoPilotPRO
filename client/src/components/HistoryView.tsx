@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { HistoryItem } from '../types';
-import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder } from 'lucide-react';
+import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Smartphone } from 'lucide-react';
 import { PlatformBadge } from './PlatformBadge';
 
 interface HistoryViewProps {
@@ -9,6 +9,7 @@ interface HistoryViewProps {
   onOpenFile?: (filePath: string) => void;
   onShowInFolder?: (filePath: string) => void;
   onDeleteItem?: (id: string) => void;
+  onSendToPhone?: (filePath: string, title: string) => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
@@ -16,7 +17,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onClearHistory,
   onOpenFile,
   onShowInFolder,
-  onDeleteItem
+  onDeleteItem,
+  onSendToPhone
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'video' | 'audio' | 'youtube' | 'tiktok'>('all');
@@ -149,6 +151,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {item.filePath && onSendToPhone && (
+                    <button
+                      onClick={() => onSendToPhone(item.filePath!, item.title)}
+                      className="p-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 transition-all"
+                      title="Send to Phone via Wi-Fi QR"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                    </button>
+                  )}
+
                   {item.filePath && onOpenFile && (
                     <button
                       onClick={() => onOpenFile(item.filePath!)}

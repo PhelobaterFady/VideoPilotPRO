@@ -1,21 +1,30 @@
 import React, { useState } from 'react';
 import type { MediaInfo } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, Clock, User, ExternalLink, Check, FileText, Zap } from 'lucide-react';
+import { Download, Clock, User, ExternalLink, Check, FileText, Zap, Scissors, Image as ImageIcon } from 'lucide-react';
 
 interface VideoPreviewCardProps {
   media: MediaInfo;
-  onDownload: (url: string, formatId: string, isAudio: boolean, title: string, subtitleLang?: string) => void;
+  onDownload: (url: string, formatId: string, isAudio: boolean, title: string, subtitleLang?: string, clipStart?: string, clipEnd?: string) => void;
+  onOpenTranscript?: (media: MediaInfo) => void;
+  onSavePoster?: (thumbnailUrl: string, title: string) => void;
 }
 
 export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
   media,
-  onDownload
+  onDownload,
+  onOpenTranscript,
+  onSavePoster
 }) => {
   const initialFormat = media.formats?.find(f => f.isVideo)?.formatId || (media.formats && media.formats[0] ? media.formats[0].formatId : 'best');
   const [selectedFormat, setSelectedFormat] = useState<string>(initialFormat);
   const [selectedSubtitle, setSelectedSubtitle] = useState<string>('none');
   const [copied, setCopied] = useState(false);
+
+  // Video Trimmer State
+  const [isTrimmerActive, setIsTrimmerActive] = useState<boolean>(false);
+  const [clipStart, setClipStart] = useState<string>('00:00:00');
+  const [clipEnd, setClipEnd] = useState<string>('00:01:00');
 
   React.useEffect(() => {
     const bestFmt = media.formats?.find(f => f.isVideo)?.formatId || (media.formats && media.formats[0] ? media.formats[0].formatId : 'best');
@@ -38,7 +47,9 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
       selectedFormat,
       isAudio,
       media.title,
-      selectedSubtitle !== 'none' ? selectedSubtitle : undefined
+      selectedSubtitle !== 'none' ? selectedSubtitle : undefined,
+      isTrimmerActive ? clipStart : undefined,
+      isTrimmerActive ? clipEnd : undefined
     );
   };
 
@@ -64,6 +75,18 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
             <PlatformBadge platform={media.platform} />
           </div>
 
+          {/* HD Poster Extraction Button */}
+          {media.thumbnail && onSavePoster && (
+            <button
+              onClick={() => onSavePoster(media.thumbnail, media.title)}
+              className="absolute top-3 right-3 bg-black/80 hover:bg-emerald-500 hover:text-black text-zinc-200 backdrop-blur-md px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-zinc-700 hover:border-emerald-400 shadow-md z-10"
+              title="Save Ultra HD Poster"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>HD Poster</span>
+            </button>
+          )}
+
           {media.duration ? (
             <div className="absolute bottom-3 right-3 bg-black/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-200 flex items-center gap-1 font-mono">
               <Clock className="w-3.5 h-3.5 text-emerald-400" />
@@ -80,7 +103,7 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
                 {media.title}
               </h2>
             </div>
-            <div className="flex items-center gap-4 mt-2 text-xs text-zinc-400">
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-zinc-400">
               <span className="flex items-center gap-1.5 font-medium text-zinc-300">
                 <User className="w-3.5 h-3.5 text-emerald-400" />
                 {media.uploader}
@@ -93,6 +116,30 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
                 <Zap className="w-3 h-3" /> Turbo 5x
               </span>
+
+              {/* Transcript & Subtitles Extractor Button */}
+              {onOpenTranscript && (
+                <button
+                  onClick={() => onOpenTranscript(media)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 text-xs font-bold border border-zinc-700 transition-all hover:border-emerald-500"
+                >
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Transcript</span>
+                </button>
+              )}
+
+              {/* Trimmer Toggle Button */}
+              <button
+                onClick={() => setIsTrimmerActive(prev => !prev)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                  isTrimmerActive
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                    : 'bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+                }`}
+              >
+                <Scissors className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isTrimmerActive ? 'Trimmer Active ✂️' : 'Clip Section'}</span>
+              </button>
             </div>
           </div>
 
@@ -184,13 +231,66 @@ export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({
             </div>
           </div>
 
+          {/* Video Section Trimmer Panel */}
+          {isTrimmerActive && (
+            <div className="bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/30 space-y-2.5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Scissors className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-amber-200">Video Clipper / Section Trimmer</span>
+                </div>
+                <span className="text-[10px] text-amber-300/80 font-mono">Downloads this section only</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-[130px]">
+                  <span className="text-xs text-zinc-400 font-semibold">From:</span>
+                  <input
+                    type="text"
+                    value={clipStart}
+                    onChange={(e) => setClipStart(e.target.value)}
+                    placeholder="00:00:00"
+                    className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 flex-1 min-w-[130px]">
+                  <span className="text-xs text-zinc-400 font-semibold">To:</span>
+                  <input
+                    type="text"
+                    value={clipEnd}
+                    onChange={(e) => setClipEnd(e.target.value)}
+                    placeholder="00:01:00"
+                    className="w-full bg-zinc-950 border border-zinc-800 focus:border-amber-500 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => { setClipStart('00:00:00'); setClipEnd('00:00:30'); }}
+                    className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 font-mono"
+                  >
+                    First 30s
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setClipStart('00:00:00'); setClipEnd('00:01:00'); }}
+                    className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 font-mono"
+                  >
+                    First 60s
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleDownloadClick}
             className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-xs bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 transition-all transform active:scale-98"
           >
             <Download className="w-4 h-4" />
             <span>
-              {isAudio ? 'Download Audio MP3 (320kbps)' : `Download Video (${selectedFormatObj?.quality || 'Best Quality'})`}
+              {isTrimmerActive
+                ? `Download Trimmed Clip (${clipStart} -> ${clipEnd})`
+                : (isAudio ? 'Download Audio MP3 (320kbps)' : `Download Video (${selectedFormatObj?.quality || 'Best Quality'})`)}
             </span>
           </button>
         </div>
