@@ -197,22 +197,37 @@ function getMediaInfo(url) {
 
     execFile('python', args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
+        const errText = (stderr || error.message || '').toLowerCase();
         console.error(`yt-dlp info error for [${url}]:`, stderr || error.message);
-        
-        // Fallback for short links / Facebook reels
-        return resolve({
-          type: 'video',
-          platform,
-          id: `vid_${Date.now()}`,
-          title: `${platform.toUpperCase()} Media Video`,
-          description: '',
-          uploader: platform.toUpperCase(),
-          duration: 0,
-          thumbnail: '',
-          webpage_url: url,
-          formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }],
-          subtitles: []
-        });
+
+        if (errText.includes('404') || errText.includes('not found') || errText.includes('does not exist') || errText.includes('400') || errText.includes('bad request') || errText.includes('invalid argument')) {
+          return reject(new Error('The requested video or playlist was not found or the playlist ID is invalid. Please verify that the link is correct, not deleted, and set to public.'));
+        }
+        if (errText.includes('private') || errText.includes('sign in') || errText.includes('login required')) {
+          return reject(new Error('This video or playlist is private or requires authentication to view.'));
+        }
+        if (errText.includes('403') || errText.includes('forbidden')) {
+          return reject(new Error('Access was denied by the platform (HTTP 403 Forbidden).'));
+        }
+
+        // Only fallback for non-YouTube platforms where yt-dlp metadata extraction might be restricted
+        if (platform !== 'youtube' && !url.includes('playlist') && !url.includes('list=')) {
+          return resolve({
+            type: 'video',
+            platform,
+            id: `vid_${Date.now()}`,
+            title: `${platform.toUpperCase()} Media Video`,
+            description: '',
+            uploader: platform.toUpperCase(),
+            duration: 0,
+            thumbnail: '',
+            webpage_url: url,
+            formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }],
+            subtitles: []
+          });
+        }
+
+        return reject(new Error('Failed to load playlist or video. Please check the URL and try again.'));
       }
 
       try {
