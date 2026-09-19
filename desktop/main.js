@@ -100,6 +100,9 @@ function createWindow() {
     show: true
   });
 
+  // Launch application in full screen (maximized)
+  mainWindow.maximize();
+
   const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
   const relativeHtmlPath = path.join(__dirname, '..', 'client', 'dist', 'index.html');
 

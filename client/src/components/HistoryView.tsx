@@ -8,19 +8,32 @@ interface HistoryViewProps {
   onClearHistory: () => void;
   onOpenFile?: (filePath: string) => void;
   onShowInFolder?: (filePath: string) => void;
+  onDeleteItem?: (id: string) => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   history,
   onClearHistory,
   onOpenFile,
-  onShowInFolder
+  onShowInFolder,
+  onDeleteItem
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'video' | 'audio' | 'youtube' | 'tiktok'>('all');
 
-  const filteredHistory = history.filter(item =>
-    item.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const videoCount = history.filter(i => i.type === 'video').length;
+  const audioCount = history.filter(i => i.type === 'audio').length;
+
+  const filteredHistory = history.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (categoryFilter === 'video') return item.type === 'video';
+    if (categoryFilter === 'audio') return item.type === 'audio';
+    if (categoryFilter === 'youtube') return item.platform === 'youtube';
+    if (categoryFilter === 'tiktok') return item.platform === 'tiktok';
+    return true;
+  });
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -31,8 +44,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             <History className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">Downloads History</h2>
-            <p className="text-xs text-zinc-400">Total downloads recorded: {history.length}</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white">Downloads History</h2>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                {history.length} items
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Recorded: <span className="text-zinc-200 font-semibold">{videoCount}</span> videos, <span className="text-zinc-200 font-semibold">{audioCount}</span> audio files
+            </p>
           </div>
         </div>
 
@@ -42,22 +62,46 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Clear History</span>
+            <span>Clear All History</span>
           </button>
         )}
       </div>
 
-      {/* Search Bar */}
+      {/* Filter Tabs & Search Bar */}
       {history.length > 0 && (
-        <div className="relative max-w-md">
-          <Search className="w-4 h-4 absolute left-3.5 top-3 text-zinc-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search download history..."
-            className="w-full bg-zinc-900 text-zinc-100 text-xs rounded-xl pl-10 pr-3 py-2.5 border border-zinc-800 focus:outline-none focus:border-emerald-500"
-          />
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-zinc-900/40 p-2.5 rounded-2xl border border-zinc-800/80">
+          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+            {[
+              { id: 'all', label: `All (${history.length})` },
+              { id: 'video', label: `🎬 Videos (${videoCount})` },
+              { id: 'audio', label: `🎵 Audio (${audioCount})` },
+              { id: 'youtube', label: 'YouTube' },
+              { id: 'tiktok', label: 'TikTok' }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setCategoryFilter(f.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  categoryFilter === f.id
+                    ? 'bg-zinc-100 text-zinc-950 font-bold shadow'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search history..."
+              className="w-full bg-zinc-900 text-zinc-100 text-xs rounded-xl pl-8 pr-3 py-2 border border-zinc-800 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
         </div>
       )}
 
@@ -134,6 +178,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
+
+                  {onDeleteItem && (
+                    <button
+                      onClick={() => onDeleteItem(item.id)}
+                      className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-all"
+                      title="Remove from history"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

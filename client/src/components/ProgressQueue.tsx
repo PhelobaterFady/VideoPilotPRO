@@ -1,7 +1,7 @@
 import React from 'react';
 import type { DownloadQueueItem } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Zap, Clock, Folder, ExternalLink, Pause, Play, X } from 'lucide-react';
+import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Clock, Folder, ExternalLink, Pause, Play, X } from 'lucide-react';
 
 interface ProgressQueueProps {
   queue: DownloadQueueItem[];
@@ -106,9 +106,13 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
                       {(item.speed || item.eta) && (
                         <div className="flex items-center justify-end gap-2 text-[10px] font-mono text-zinc-400 mt-1">
                           {item.speed && (
-                            <span className="flex items-center gap-1 text-cyan-400">
-                              <Zap className="w-3 h-3" />
-                              {item.speed}
+                            <span className="flex items-center gap-1.5 text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+                              <span className="flex items-center gap-0.5 text-cyan-400">
+                                <span className="speed-wave-bar" style={{ animationDelay: '0ms' }} />
+                                <span className="speed-wave-bar" style={{ animationDelay: '200ms' }} />
+                                <span className="speed-wave-bar" style={{ animationDelay: '400ms' }} />
+                              </span>
+                              <span>{item.speed}</span>
                             </span>
                           )}
                           {item.eta && (

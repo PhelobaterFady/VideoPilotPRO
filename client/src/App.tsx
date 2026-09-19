@@ -11,8 +11,10 @@ import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import type { ThemeType } from './components/SettingsView';
+import { ToastContainer } from './components/Toast';
+import type { ToastItem } from './components/Toast';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
-import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X } from 'lucide-react';
+import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 const CURRENT_VERSION = '1.2.0';
@@ -55,6 +57,31 @@ export function App() {
   
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [dismissedClipboardUrl, setDismissedClipboardUrl] = useState<string | null>(null);
+
+  // In-App Modern Glassmorphic Toast System
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const addToast = (type: ToastItem['type'], message: string, title?: string) => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    setToasts(prev => [...prev.slice(-3), { id, type, message, title }]);
+  };
+  const dismissToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Drag & Drop Link State
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Collapsible Sidebar State
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('videopilot_sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      localStorage.setItem('videopilot_sidebar_collapsed', String(!prev));
+      return !prev;
+    });
+  };
 
 
 
@@ -406,6 +433,7 @@ export function App() {
     };
 
     setDownloadQueue(prev => [newQueueItem, ...prev]);
+    addToast('info', `Added "${title.slice(0, 35)}..." to queue`, 'Download Started');
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/download`, {
@@ -464,6 +492,7 @@ export function App() {
       };
 
       setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
+      addToast('success', `${title.slice(0, 35)}... saved on your PC!`, 'Download Complete 🎉');
 
       // Desktop Native Notification
       if ((window as any).require) {
@@ -647,15 +676,60 @@ export function App() {
 
   const activeDownloads = downloadQueue.filter(i => i.status === 'downloading').length;
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const droppedText = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
+    if (droppedText && (droppedText.startsWith('http://') || droppedText.startsWith('https://'))) {
+      setActiveTab('downloader');
+      addToast('info', `Analyzing: ${droppedText.slice(0, 40)}...`, 'Link Dropped');
+      handleAnalyzeUrl(droppedText.trim());
+    }
+  };
+
   return (
-    <div className={`h-screen w-screen bg-[#050505] text-zinc-100 flex flex-col overflow-hidden select-none theme-${activeTheme}`}>
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`h-screen w-screen bg-[#050505] text-zinc-100 flex flex-col overflow-hidden select-none theme-${activeTheme} relative`}
+    >
       <TitleBar />
+
+      {/* Drag & Drop Neon Glowing Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-xl border-4 border-dashed border-emerald-500/80 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-200">
+          <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-2xl shadow-emerald-500/20 animate-bounce">
+            <UploadCloud className="w-10 h-10" />
+          </div>
+          <div className="text-center space-y-1">
+            <h3 className="text-2xl font-black text-white">Drop Link to Download Instantly 🚀</h3>
+            <p className="text-sm text-zinc-400">Release the media URL to analyze and download immediately</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
           activeDownloadsCount={activeDownloads}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
         />
 
         <main className="flex-1 overflow-y-auto p-6 bg-[#09090b]">
@@ -739,8 +813,9 @@ export function App() {
             </div>
           )}
 
+          {/* Tab Content with Smooth Transitions */}
           {activeTab === 'downloader' && (
-            <div className="max-w-5xl mx-auto space-y-6">
+            <div className="max-w-5xl mx-auto space-y-6 tab-content-enter">
               <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800">
                 <div>
                   <h2 className="text-lg font-bold text-white">Direct Downloader</h2>
@@ -803,40 +878,53 @@ export function App() {
           )}
 
           {activeTab === 'batch' && (
-            <BatchDownloader
-              onAnalyzeBatch={handleAnalyzeBatch}
-              isLoading={isLoading}
-              onClose={() => setActiveTab('downloader')}
-            />
+            <div className="tab-content-enter">
+              <BatchDownloader
+                onAnalyzeBatch={handleAnalyzeBatch}
+                isLoading={isLoading}
+                onClose={() => setActiveTab('downloader')}
+              />
+            </div>
           )}
 
           {activeTab === 'history' && (
-            <HistoryView
-              history={history}
-              onClearHistory={() => setHistory([])}
-              onOpenFile={handleOpenFile}
-              onShowInFolder={handleShowInFolder}
-            />
+            <div className="tab-content-enter">
+              <HistoryView
+                history={history}
+                onClearHistory={() => setHistory([])}
+                onOpenFile={handleOpenFile}
+                onShowInFolder={handleShowInFolder}
+                onDeleteItem={(id) => {
+                  setHistory(prev => prev.filter(i => i.id !== id));
+                  addToast('info', 'Item removed from download history');
+                }}
+              />
+            </div>
           )}
 
           {activeTab === 'settings' && (
-            <SettingsView
-              downloadPath={downloadPath}
-              onChangePath={handleSelectFolder}
-              currentVersion={CURRENT_VERSION}
-              onCheckUpdate={checkVersionRealtime}
-              updateStatus={updateStatus}
-              onDownloadUpdate={handleTriggerUpdate}
-              activeTheme={activeTheme}
-              onSelectTheme={setActiveTheme}
-              speedLimit={speedLimit}
-              onChangeSpeedLimit={setSpeedLimit}
-            />
+            <div className="tab-content-enter">
+              <SettingsView
+                downloadPath={downloadPath}
+                onChangePath={handleSelectFolder}
+                currentVersion={CURRENT_VERSION}
+                onCheckUpdate={checkVersionRealtime}
+                updateStatus={updateStatus}
+                onDownloadUpdate={handleTriggerUpdate}
+                activeTheme={activeTheme}
+                onSelectTheme={setActiveTheme}
+                speedLimit={speedLimit}
+                onChangeSpeedLimit={(lim) => {
+                  setSpeedLimit(lim);
+                  addToast('speed', `Speed limit updated to: ${lim === 'unlimited' ? 'Maximum Speed' : lim}`, 'Bandwidth Updated');
+                }}
+              />
+            </div>
           )}
         </main>
       </div>
 
-
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} />
     </div>
