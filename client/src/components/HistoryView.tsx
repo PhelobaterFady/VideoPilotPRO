@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { HistoryItem } from '../types';
-import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Play } from 'lucide-react';
+import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder } from 'lucide-react';
 import { PlatformBadge } from './PlatformBadge';
 
 interface HistoryViewProps {
@@ -8,15 +8,13 @@ interface HistoryViewProps {
   onClearHistory: () => void;
   onOpenFile?: (filePath: string) => void;
   onShowInFolder?: (filePath: string) => void;
-  onPlayMedia?: (media: { title: string; filePath?: string; url?: string; thumbnail?: string; isAudio?: boolean }) => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   history,
   onClearHistory,
   onOpenFile,
-  onShowInFolder,
-  onPlayMedia
+  onShowInFolder
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -72,15 +70,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filteredHistory.map((item) => {
-            const isAudio = item.format.toLowerCase().includes('mp3') || item.format.toLowerCase().includes('audio');
-            return (
-              <div
+          {filteredHistory.map((item) => (
+            <div
                 key={item.id}
                 className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 flex items-center justify-between gap-3 hover:border-zinc-700 transition duration-200"
               >
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="relative group/thumb w-14 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
+                  <div className="w-14 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
                     {item.thumbnail ? (
                       <img
                         src={item.thumbnail}
@@ -89,20 +85,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       />
                     ) : (
                       <Download className="w-5 h-5 text-zinc-400" />
-                    )}
-                    {onPlayMedia && item.filePath && (
-                      <button
-                        onClick={() => onPlayMedia({
-                          title: item.title,
-                          filePath: item.filePath,
-                          thumbnail: item.thumbnail,
-                          isAudio
-                        })}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity"
-                        title="Play from PC in App"
-                      >
-                        <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                      </button>
                     )}
                   </div>
                   <div className="truncate">
@@ -123,21 +105,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {onPlayMedia && item.filePath && (
-                    <button
-                      onClick={() => onPlayMedia({
-                        title: item.title,
-                        filePath: item.filePath,
-                        thumbnail: item.thumbnail,
-                        isAudio
-                      })}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-emerald-400 transition-all"
-                      title="Play from PC in App"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  )}
-
                   {item.filePath && onOpenFile && (
                     <button
                       onClick={() => onOpenFile(item.filePath!)}
@@ -169,8 +136,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   </a>
                 </div>
               </div>
-            );
-          })}
+            ))}
         </div>
       )}
     </div>

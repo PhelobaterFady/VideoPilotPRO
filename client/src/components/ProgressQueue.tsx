@@ -1,22 +1,20 @@
 import React from 'react';
 import type { DownloadQueueItem } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Zap, Clock, Folder, Play, ExternalLink } from 'lucide-react';
+import { Download, CheckCircle2, AlertCircle, Loader2, Music, Video, Zap, Clock, Folder, ExternalLink } from 'lucide-react';
 
 interface ProgressQueueProps {
   queue: DownloadQueueItem[];
   onClearCompleted: () => void;
   onOpenFile?: (filePath: string) => void;
   onShowInFolder?: (filePath: string) => void;
-  onPlayMedia?: (filePath: string, title: string, isVideo: boolean) => void;
 }
 
 export const ProgressQueue: React.FC<ProgressQueueProps> = ({
   queue,
   onClearCompleted,
   onOpenFile,
-  onShowInFolder,
-  onPlayMedia
+  onShowInFolder
 }) => {
   if (queue.length === 0) return null;
 
@@ -119,15 +117,6 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
 
                 {item.status === 'completed' && (
                   <div className="flex items-center gap-2">
-                    {onPlayMedia && item.filePath && (
-                      <button
-                        onClick={() => onPlayMedia(item.filePath!, item.title, !item.isAudio)}
-                        className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-all"
-                        title="Play in App from computer"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-emerald-400" />
-                      </button>
-                    )}
                     {onOpenFile && item.filePath && (
                       <button
                         onClick={() => onOpenFile(item.filePath!)}

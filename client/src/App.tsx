@@ -11,7 +11,6 @@ import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import type { ThemeType } from './components/SettingsView';
-import { MediaPlayerModal } from './components/MediaPlayerModal';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X } from 'lucide-react';
 
@@ -57,14 +56,7 @@ export function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [dismissedClipboardUrl, setDismissedClipboardUrl] = useState<string | null>(null);
 
-  const [activePlayerMedia, setActivePlayerMedia] = useState<{
-    isOpen: boolean;
-    title: string;
-    filePath?: string;
-    url?: string;
-    thumbnail?: string;
-    isAudio?: boolean;
-  } | null>(null);
+
 
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<{
@@ -274,16 +266,7 @@ export function App() {
     }
   };
 
-  const handlePlayMedia = (media: { title: string; filePath?: string; url?: string; thumbnail?: string; isAudio?: boolean }) => {
-    setActivePlayerMedia({
-      isOpen: true,
-      title: media.title,
-      filePath: media.filePath,
-      url: media.url,
-      thumbnail: media.thumbnail,
-      isAudio: media.isAudio
-    });
-  };
+
 
   const handleSelectFolder = async () => {
     if ((window as any).require) {
@@ -664,13 +647,6 @@ export function App() {
                 onClearCompleted={() => setDownloadQueue(prev => prev.filter(i => i.status !== 'completed'))}
                 onOpenFile={handleOpenFile}
                 onShowInFolder={handleShowInFolder}
-                onPlayMedia={(filePath, title, isVideo) => {
-                  handlePlayMedia({
-                    title,
-                    filePath,
-                    isAudio: !isVideo
-                  });
-                }}
               />
             </div>
           )}
@@ -689,7 +665,6 @@ export function App() {
               onClearHistory={() => setHistory([])}
               onOpenFile={handleOpenFile}
               onShowInFolder={handleShowInFolder}
-              onPlayMedia={handlePlayMedia}
             />
           )}
 
@@ -708,16 +683,7 @@ export function App() {
         </main>
       </div>
 
-      {/* In-App Media Player Modal */}
-      {activePlayerMedia && activePlayerMedia.isOpen && (
-        <MediaPlayerModal
-          filePath={activePlayerMedia.filePath || ''}
-          title={activePlayerMedia.title}
-          isVideo={!activePlayerMedia.isAudio}
-          onClose={() => setActivePlayerMedia(null)}
-          thumbnail={activePlayerMedia.thumbnail}
-        />
-      )}
+
 
       <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} />
     </div>
