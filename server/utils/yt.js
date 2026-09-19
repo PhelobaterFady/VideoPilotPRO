@@ -95,20 +95,26 @@ function getMediaInfo(url) {
         const isPlaylist = data._type === 'playlist' || (Array.isArray(data.entries) && data.entries.length > 0);
 
         if (isPlaylist) {
-          const items = (data.entries || []).map((entry, index) => ({
-            id: entry.id || `item_${index}`,
-            title: entry.title || `Track ${index + 1}`,
-            url: entry.url || entry.webpage_url || url,
-            duration: entry.duration || 0,
-            uploader: entry.uploader || entry.channel || data.title || 'Unknown',
-            thumbnail: entry.thumbnail || (entry.thumbnails && entry.thumbnails[0] ? entry.thumbnails[0].url : '') || data.thumbnail || ''
-          }));
+          const items = (data.entries || []).map((entry, index) => {
+            const entryUrl = entry.url && (entry.url.startsWith('http://') || entry.url.startsWith('https://'))
+              ? entry.url
+              : (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : url);
+
+            return {
+              id: entry.id || `item_${index}`,
+              title: entry.title || `Track ${index + 1}`,
+              url: entryUrl,
+              duration: entry.duration || 0,
+              uploader: entry.uploader || entry.channel || data.title || 'Unknown',
+              thumbnail: entry.thumbnail || (entry.thumbnails && entry.thumbnails[0] ? entry.thumbnails[0].url : '') || data.thumbnail || ''
+            };
+          });
 
           return resolve({
             type: 'playlist',
             platform,
-            id: data.id,
-            title: data.title || 'Playlist',
+            id: data.id || `playlist_${Date.now()}`,
+            title: data.title || 'YouTube Playlist',
             itemCount: items.length,
             thumbnail: data.thumbnail || (items[0] ? items[0].thumbnail : ''),
             items
@@ -153,78 +159,113 @@ function getMediaInfo(url) {
 }
 
 /**
- * Download file directly into specified PC output directory with robust MP3 extraction
+ * Download file or playlist tracks directly into specified PC output directory with robust MP3 extraction
  */
-function downloadMediaToFile(url, format, isAudio, title, outputDir, onProgress, onComplete, onError) {
-  const args = [
-    '-m', 'yt_dlp',
-    '--js-runtimes', 'node',
-    '--newline',
-    '--no-warnings',
-    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    '--referer', 'https://www.google.com/'
-  ];
+function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outputDirArg, onProgressArg, onCompleteArg, onErrorArg) {
+  let url = '';
+  let format = 'best';
+  let isAudio = false;
+  let title = '';
+  let outputDir = '';
+  let onProgress = null;
+  let onComplete = null;
+  let onError = null;
 
-  const hasFfmpeg = ffmpegPath && fs.existsSync(ffmpegPath);
-  if (hasFfmpeg) {
-    args.push('--ffmpeg-location', ffmpegPath);
-  }
-
-  if (isAudio || format === 'audio-best') {
-    if (hasFfmpeg) {
-      args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
-    } else {
-      args.push('-f', 'ba/b');
-    }
+  if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
+    url = urlOrOptions.url;
+    format = urlOrOptions.format || 'best';
+    isAudio = !!(urlOrOptions.audioOnly || urlOrOptions.isAudio);
+    title = urlOrOptions.title || '';
+    outputDir = urlOrOptions.outputDir || path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Downloads');
+    onProgress = urlOrOptions.onProgress;
+    onComplete = urlOrOptions.onComplete;
+    onError = urlOrOptions.onError;
   } else {
-    args.push('-f', 'b/best');
+    url = urlOrOptions;
+    format = formatArg || 'best';
+    isAudio = !!isAudioArg;
+    title = titleArg || '';
+    outputDir = outputDirArg || path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Downloads');
+    onProgress = onProgressArg;
+    onComplete = onCompleteArg;
+    onError = onErrorArg;
   }
 
-  if (!fs.existsSync(outputDir)) {
-    try {
-      fs.mkdirSync(outputDir, { recursive: true });
-    } catch (e) {
-      console.warn('Could not create directory:', e.message);
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-m', 'yt_dlp',
+      '--js-runtimes', 'node',
+      '--newline',
+      '--no-warnings',
+      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      '--referer', 'https://www.google.com/'
+    ];
+
+    const hasFfmpeg = ffmpegPath && fs.existsSync(ffmpegPath);
+    if (hasFfmpeg) {
+      args.push('--ffmpeg-location', ffmpegPath);
     }
-  }
 
-  const outputPath = path.join(outputDir, '%(title)s.%(ext)s').replace(/\\/g, '/');
-  args.push('-o', outputPath);
-  args.push(url);
+    if (isAudio || format === 'audio-best') {
+      if (hasFfmpeg) {
+        args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
+      } else {
+        args.push('-f', 'ba/b');
+      }
+    } else {
+      args.push('-f', 'b/best');
+    }
 
-  console.log(`Starting download: ${url} -> ${outputPath}`);
-
-  const proc = spawn('python', args);
-
-  const handleData = (data) => {
-    const text = data.toString();
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.includes('[download]')) {
-        const prog = parseProgressLine(line);
-        if (prog && prog.percent !== null) {
-          onProgress && onProgress(prog);
-        }
+    if (!fs.existsSync(outputDir)) {
+      try {
+        fs.mkdirSync(outputDir, { recursive: true });
+      } catch (e) {
+        console.warn('Could not create directory:', e.message);
       }
     }
-  };
 
-  proc.stdout.on('data', handleData);
-  proc.stderr.on('data', handleData);
+    const outputPath = path.join(outputDir, '%(title)s.%(ext)s').replace(/\\/g, '/');
+    args.push('-o', outputPath);
+    args.push(url);
 
-  proc.on('close', (code) => {
-    if (code === 0) {
-      console.log(`Download completed successfully in ${outputDir}`);
-      onComplete && onComplete();
-    } else {
-      console.error(`Download process exited with code ${code}`);
-      onError && onError(new Error(`yt-dlp process exited with code ${code}`));
-    }
-  });
+    console.log(`Starting download: ${url} -> ${outputPath}`);
 
-  proc.on('error', (err) => {
-    console.error('yt-dlp spawn error:', err);
-    onError && onError(err);
+    const proc = spawn('python', args);
+
+    const handleData = (data) => {
+      const text = data.toString();
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.includes('[download]')) {
+          const prog = parseProgressLine(line);
+          if (prog && prog.percent !== null) {
+            onProgress && onProgress(prog);
+          }
+        }
+      }
+    };
+
+    proc.stdout.on('data', handleData);
+    proc.stderr.on('data', handleData);
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        console.log(`Download completed successfully in ${outputDir}`);
+        onComplete && onComplete();
+        resolve({ success: true, filePath: outputPath });
+      } else {
+        console.error(`Download process exited with code ${code}`);
+        const err = new Error(`yt-dlp process exited with code ${code}`);
+        onError && onError(err);
+        reject(err);
+      }
+    });
+
+    proc.on('error', (err) => {
+      console.error('yt-dlp spawn error:', err);
+      onError && onError(err);
+      reject(err);
+    });
   });
 }
 

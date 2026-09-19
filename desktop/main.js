@@ -1,8 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 let autoUpdater = null;
+let isUpdateDownloaded = false;
+
 try {
   const updaterModule = require('electron-updater');
   autoUpdater = updaterModule.autoUpdater;
@@ -76,6 +78,7 @@ if (autoUpdater) {
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded event:', info);
+    isUpdateDownloaded = true;
     mainWindow?.webContents.send('update-ready', info);
   });
 }
@@ -87,19 +90,43 @@ ipcMain.on('check-for-updates', async () => {
       mainWindow?.webContents.send('update-check-result', {
         checked: true,
         available: !!result,
-        version: result?.updateInfo?.version || '1.2.0'
+        version: result?.updateInfo?.version || null,
+        mode: 'github-releases'
       });
     } catch (err) {
-      mainWindow?.webContents.send('update-check-result', { checked: true, available: false, error: err.message });
+      console.warn('electron-updater check failed (falling back to API endpoint):', err.message);
+      mainWindow?.webContents.send('update-check-result', {
+        checked: true,
+        available: false,
+        fallbackToApi: true,
+        error: err.message
+      });
     }
   } else {
-    mainWindow?.webContents.send('update-check-result', { checked: true, available: false });
+    mainWindow?.webContents.send('update-check-result', {
+      checked: true,
+      available: false,
+      fallbackToApi: true
+    });
   }
 });
 
 ipcMain.on('restart-and-update', () => {
-  if (autoUpdater) {
+  if (autoUpdater && isUpdateDownloaded) {
     autoUpdater.quitAndInstall();
+  }
+});
+
+ipcMain.handle('open-external', async (_event, url) => {
+  try {
+    if (url && typeof url === 'string') {
+      await shell.openExternal(url);
+      return { success: true };
+    }
+    return { success: false, error: 'Invalid URL' };
+  } catch (err) {
+    console.error('Failed to open external URL:', err);
+    return { success: false, error: err.message };
   }
 });
 

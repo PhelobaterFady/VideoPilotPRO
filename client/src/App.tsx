@@ -15,8 +15,36 @@ import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem } from './
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.1.0';
+const CURRENT_VERSION = '1.2.0';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
+
+function isVersionNewer(latest?: string, current: string = CURRENT_VERSION): boolean {
+  if (!latest || !current) return false;
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const l = parse(latest);
+  const c = parse(current);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const lVal = l[i] !== undefined ? l[i] : 0;
+    const cVal = c[i] !== undefined ? c[i] : 0;
+    if (lVal > cVal) return true;
+    if (lVal < cVal) return false;
+  }
+  return false;
+}
+
+const openExternalUrl = async (url: string) => {
+  if (!url) return;
+  if ((window as any).require) {
+    try {
+      const { ipcRenderer } = (window as any).require('electron');
+      const res = await ipcRenderer.invoke('open-external', url);
+      if (res && res.success) return;
+    } catch (e) {
+      console.warn('IPC open-external failed, falling back to window.open', e);
+    }
+  }
+  window.open(url, '_blank');
+};
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('downloader');
@@ -26,7 +54,14 @@ export function App() {
   const [downloadQueue, setDownloadQueue] = useState<DownloadQueueItem[]>([]);
   
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<{ checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<{
+    checked: boolean;
+    isLatest: boolean;
+    latestVersion?: string;
+    downloadUrl?: string;
+    releaseNotes?: string;
+    error?: string | null;
+  } | null>(null);
 
   const [activeTheme, setActiveTheme] = useState<ThemeType>(() => {
     return (localStorage.getItem('videopilot_theme') as ThemeType) || 'emerald';
@@ -63,50 +98,76 @@ export function App() {
       checked: true,
       isLatest: false,
       latestVersion: '1.2.0',
-      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+      releaseNotes: 'Fixed download speeds, enhanced 320kbps MP3 audio conversion, and new customization themes.'
     });
   };
 
+  const handleTriggerUpdate = (downloadUrl?: string) => {
+    if (updateInfo?.url === 'ready') {
+      if ((window as any).require) {
+        try {
+          const { ipcRenderer } = (window as any).require('electron');
+          ipcRenderer.send('restart-and-update');
+          return;
+        } catch (e) {}
+      }
+    }
+    const targetUrl = downloadUrl || updateStatus?.downloadUrl || updateInfo?.url || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest';
+    openExternalUrl(targetUrl);
+  };
+
   const checkVersionRealtime = async () => {
-    // Electron IPC Check
+    // 1. Electron IPC Check (Calls electron-updater if configured)
     if ((window as any).require) {
       try {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.send('check-for-updates');
-      } catch (e) {}
+      } catch (e) {
+        console.warn('IPC check error:', e);
+      }
     }
 
+    // 2. Hybrid API Check (Queries Express / Vercel endpoint)
     try {
       const res = await fetch(`${API_BASE_URL}/api/version`).catch(() => fetch('/api/version'));
       if (res && res.ok) {
         const json = await res.json();
         if (json && json.latestVersion) {
-          const isNewer = json.latestVersion !== CURRENT_VERSION;
+          const isNewer = isVersionNewer(json.latestVersion, CURRENT_VERSION);
           setUpdateStatus({
             checked: true,
             isLatest: !isNewer,
             latestVersion: json.latestVersion,
-            downloadUrl: json.downloadUrl
+            downloadUrl: json.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+            releaseNotes: json.releaseNotes,
+            error: null
           });
 
           if (isNewer) {
             setUpdateInfo({
               available: true,
               version: json.latestVersion,
-              url: json.downloadUrl
+              url: json.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
             });
           }
           return;
         }
       }
-    } catch (e) {}
+    } catch (e: any) {
+      console.warn('API version check fetch error:', e);
+    }
 
-    // Fallback check
-    setUpdateStatus({
-      checked: true,
-      isLatest: true,
-      latestVersion: CURRENT_VERSION,
-      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+    // Fallback if not already set
+    setUpdateStatus((prev) => {
+      if (prev?.latestVersion && !prev.isLatest) return prev;
+      return {
+        checked: true,
+        isLatest: true,
+        latestVersion: CURRENT_VERSION,
+        downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+        error: null
+      };
     });
   };
 
@@ -118,22 +179,37 @@ export function App() {
       try {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.on('update-available', (_: any, info: any) => {
-          setUpdateInfo({ available: true, version: info?.version });
-          setUpdateStatus({ checked: true, isLatest: false, latestVersion: info?.version });
+          const ver = info?.version || '1.2.0';
+          setUpdateInfo({ available: true, version: ver });
+          setUpdateStatus({
+            checked: true,
+            isLatest: false,
+            latestVersion: ver,
+            downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+          });
         });
+
         ipcRenderer.on('update-ready', (_: any, info: any) => {
-          setUpdateInfo({ available: true, version: info?.version, url: 'ready' });
-          setUpdateStatus({ checked: true, isLatest: false, latestVersion: info?.version });
+          const ver = info?.version || '1.2.0';
+          setUpdateInfo({ available: true, version: ver, url: 'ready' });
+          setUpdateStatus({
+            checked: true,
+            isLatest: false,
+            latestVersion: ver,
+            downloadUrl: 'ready'
+          });
         });
+
         ipcRenderer.on('update-check-result', (_: any, result: any) => {
-          if (result) {
-            const isNewer = result.available && result.version && result.version !== CURRENT_VERSION;
-            setUpdateStatus({
-              checked: true,
-              isLatest: !isNewer,
-              latestVersion: result.version || CURRENT_VERSION
-            });
+          if (result && result.available && result.version) {
+            const isNewer = isVersionNewer(result.version, CURRENT_VERSION);
             if (isNewer) {
+              setUpdateStatus({
+                checked: true,
+                isLatest: false,
+                latestVersion: result.version,
+                downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+              });
               setUpdateInfo({ available: true, version: result.version });
             }
           }
@@ -372,20 +448,11 @@ export function App() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  if ((window as any).require) {
-                    try {
-                      const { ipcRenderer } = (window as any).require('electron');
-                      ipcRenderer.send('restart-and-update');
-                      return;
-                    } catch (e) {}
-                  }
-                  window.open(updateInfo.url || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
-                }}
+                onClick={() => handleTriggerUpdate(updateInfo.url)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow flex-shrink-0"
               >
                 <DownloadCloud className="w-4 h-4" />
-                <span>Update Now</span>
+                <span>{updateInfo.url === 'ready' ? 'Restart & Install' : 'Update Now'}</span>
               </button>
             </div>
           )}
@@ -490,6 +557,7 @@ export function App() {
               onCheckUpdate={checkVersionRealtime}
               onTriggerDemoUpdate={triggerDemoUpdate}
               updateStatus={updateStatus}
+              onDownloadUpdate={handleTriggerUpdate}
               activeTheme={activeTheme}
               onSelectTheme={setActiveTheme}
             />

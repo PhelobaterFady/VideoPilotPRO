@@ -18,8 +18,12 @@ const verifyAppSecret = (req, res, next) => {
 
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: '1.2.0',
-    downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+    latestVersion: process.env.LATEST_VERSION || '1.2.0',
+    currentVersion: '1.2.0',
+    downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+    releaseNotes: 'Added full YouTube Playlist downloader with multi-track batch extraction, audio/video selection, and improved stability.',
+    releaseDate: '2026-09-20',
+    mandatory: false
   });
 });
 

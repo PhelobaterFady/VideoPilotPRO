@@ -9,7 +9,15 @@ interface SettingsViewProps {
   currentVersion?: string;
   onCheckUpdate?: () => Promise<void>;
   onTriggerDemoUpdate?: () => void;
-  updateStatus?: { checked: boolean; isLatest: boolean; latestVersion?: string; downloadUrl?: string } | null;
+  updateStatus?: {
+    checked: boolean;
+    isLatest: boolean;
+    latestVersion?: string;
+    downloadUrl?: string;
+    releaseNotes?: string;
+    error?: string | null;
+  } | null;
+  onDownloadUpdate?: (url?: string) => void;
   activeTheme?: ThemeType;
   onSelectTheme?: (theme: ThemeType) => void;
 }
@@ -21,6 +29,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onCheckUpdate,
   onTriggerDemoUpdate,
   updateStatus,
+  onDownloadUpdate,
   activeTheme = 'emerald',
   onSelectTheme
 }) => {
@@ -216,38 +225,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
 
         {updateStatus?.checked && (
-          <div className={`p-4 rounded-2xl border text-xs font-medium flex items-center justify-between ${
-            updateStatus.isLatest
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border-emerald-500/50 text-emerald-200'
-          }`}>
-            {updateStatus.isLatest ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
+          <div>
+            {updateStatus.error ? (
+              <div className="p-4 rounded-2xl border bg-amber-500/10 border-amber-500/30 text-amber-300 text-xs font-medium flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span>{updateStatus.error}</span>
+                </div>
+                <button
+                  onClick={handleCheck}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30 text-xs flex-shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : updateStatus.isLatest ? (
+              <div className="p-4 rounded-2xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                 <span>You are running the latest version of VideoPilot Pro (v{currentVersion}).</span>
               </div>
             ) : (
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <span>A new update (v{updateStatus.latestVersion || '1.2.0'}) is available!</span>
+              <div className="p-4 rounded-2xl border bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border-emerald-500/50 text-emerald-200 text-xs font-medium space-y-3 shadow-lg">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse flex-shrink-0" />
+                    <div>
+                      <span className="font-bold text-white text-sm">A new version (v{updateStatus.latestVersion || '1.2.0'}) is ready!</span>
+                      <p className="text-[11px] text-emerald-300/80">Upgrade to access the latest features and platform compatibility.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (onDownloadUpdate) {
+                        onDownloadUpdate(updateStatus.downloadUrl);
+                      } else {
+                        window.open(updateStatus.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow-lg transition-all"
+                  >
+                    <DownloadCloud className="w-4 h-4" />
+                    <span>Download & Update</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    if ((window as any).require) {
-                      try {
-                        const { ipcRenderer } = (window as any).require('electron');
-                        ipcRenderer.send('restart-and-update');
-                        return;
-                      } catch (e) {}
-                    }
-                    window.open(updateStatus.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow animate-bounce"
-                >
-                  <DownloadCloud className="w-3.5 h-3.5" />
-                  <span>Update Now</span>
-                </button>
+                {updateStatus.releaseNotes && (
+                  <div className="pt-2 border-t border-emerald-500/20 text-[11px] text-zinc-300">
+                    <span className="font-semibold text-emerald-400">Release Notes: </span>
+                    {updateStatus.releaseNotes}
+                  </div>
+                )}
               </div>
             )}
           </div>
