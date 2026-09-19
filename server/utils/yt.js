@@ -73,7 +73,7 @@ function formatBytes(bytes) {
 }
 
 /**
- * Parse rich available video resolutions and audio options with file sizes
+ * Parse rich available video resolutions and audio options with accurate file sizes
  */
 function parseAvailableFormats(data) {
   const formats = [];
@@ -82,17 +82,31 @@ function parseAvailableFormats(data) {
   const bestAudio = rawFormats.filter(f => f.vcodec === 'none' && f.acodec !== 'none').pop();
   const audioSize = bestAudio?.filesize || bestAudio?.filesize_approx || (data.duration ? Math.round(data.duration * 320 * 1024 / 8) : null);
 
-  // 1. Highest Video Quality Option FIRST (Defaults to Max Quality 4K / 2K / 1080p)
-  const rawTotalSize = data.filesize || data.filesize_approx;
+  // 1. Calculate TRUE Highest Video Quality Stream Size
+  const videoStreams = rawFormats.filter(f => f.vcodec && f.vcodec !== 'none');
+  const sortedVideoStreams = [...videoStreams].sort((a, b) => {
+    const hA = Math.min(a.height || 0, a.width || 0) || a.height || 0;
+    const hB = Math.min(b.height || 0, b.width || 0) || b.height || 0;
+    if (hB !== hA) return hB - hA;
+    return (b.tbr || b.filesize || 0) - (a.tbr || a.filesize || 0);
+  });
+
+  const bestVideoStream = sortedVideoStreams[0];
+  const bestVideoSize = bestVideoStream?.filesize || bestVideoStream?.filesize_approx || (bestVideoStream?.tbr && data.duration ? Math.round(bestVideoStream.tbr * 1024 * data.duration / 8) : null);
+  const bestNeedsAudio = bestVideoStream ? (bestVideoStream.acodec === 'none') : false;
+  const trueHighestSize = bestVideoSize
+    ? (bestNeedsAudio && audioSize ? bestVideoSize + audioSize : bestVideoSize)
+    : (data.filesize || data.filesize_approx);
+
   formats.push({
     formatId: 'bestvideo+bestaudio/best',
     label: 'Video MP4 👑 Highest Quality Available (Max / 4K / 1080p)',
     ext: 'mp4',
     quality: 'Highest Available (Max)',
-    fps: 60,
+    fps: bestVideoStream?.fps || 60,
     isVideo: true,
-    filesize: rawTotalSize,
-    filesizeFormatted: formatBytes(rawTotalSize) || 'Auto Max'
+    filesize: trueHighestSize,
+    filesizeFormatted: formatBytes(trueHighestSize) || 'Auto Max'
   });
 
   // 2. Multi-Resolution Video Parsing (4K, 2K, 1080p, 720p, 480p, 360p)
@@ -106,11 +120,22 @@ function parseAvailableFormats(data) {
   ];
 
   for (const res of targetResolutions) {
-    const matchedFormats = rawFormats.filter(f => f.height === res.height && f.vcodec !== 'none');
+    const matchedFormats = rawFormats.filter(f => {
+      if (!f.vcodec || f.vcodec === 'none') return false;
+      // Handle both landscape and portrait (Shorts/Reels)
+      const effH = Math.min(f.height || 0, f.width || 0) || f.height || 0;
+      return effH === res.height;
+    });
+
     if (matchedFormats.length > 0) {
-      const chosen = matchedFormats.find(f => f.ext === 'mp4') || matchedFormats[matchedFormats.length - 1];
-      const videoSize = chosen.filesize || chosen.filesize_approx;
-      const combinedSize = videoSize ? (audioSize ? videoSize + audioSize : videoSize) : null;
+      // Pick standard H.264/AVC stream or first MP4 stream
+      const chosen = matchedFormats.find(f => f.ext === 'mp4' && (f.vcodec.startsWith('avc') || f.vcodec.startsWith('h264'))) ||
+                     matchedFormats.find(f => f.ext === 'mp4') ||
+                     matchedFormats[0];
+
+      const videoSize = chosen.filesize || chosen.filesize_approx || (chosen.tbr && data.duration ? Math.round(chosen.tbr * 1024 * data.duration / 8) : null);
+      const needsAudio = chosen.acodec === 'none';
+      const combinedSize = videoSize ? (needsAudio && audioSize ? videoSize + audioSize : videoSize) : null;
 
       formats.push({
         formatId: `bestvideo[height<=${res.height}]+bestaudio/best[height<=${res.height}]/best`,
@@ -122,6 +147,15 @@ function parseAvailableFormats(data) {
         filesize: combinedSize,
         filesizeFormatted: formatBytes(combinedSize)
       });
+    }
+  }
+
+  // Ensure Highest Quality (formats[0]) is logically at least as large as any lower resolution option
+  const maxLowerVideoSize = Math.max(0, ...formats.filter((f, idx) => idx > 0 && f.isVideo && f.filesize).map(f => f.filesize));
+  if (formats[0] && formats[0].isVideo && maxLowerVideoSize > 0) {
+    if (!formats[0].filesize || formats[0].filesize < maxLowerVideoSize) {
+      formats[0].filesize = maxLowerVideoSize;
+      formats[0].filesizeFormatted = formatBytes(maxLowerVideoSize);
     }
   }
 
@@ -182,7 +216,7 @@ function getMediaInfo(url) {
     ];
 
     if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android,web');
+      args.push('--extractor-args', 'youtube:player_client=web,default');
     } else {
       args.push(
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -381,7 +415,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     }
 
     if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android,web');
+      args.push('--extractor-args', 'youtube:player_client=web,default');
     } else {
       args.push(
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
