@@ -57,6 +57,112 @@ function parseProgressLine(line) {
 }
 
 /**
+ * Helper to format bytes to human readable sizes
+ */
+function formatBytes(bytes) {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return null;
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+/**
+ * Parse rich available video resolutions and audio options with file sizes
+ */
+function parseAvailableFormats(data) {
+  const formats = [];
+  const rawFormats = data.formats || [];
+
+  // 1. Studio Quality MP3 Audio Option
+  const bestAudio = rawFormats.filter(f => f.vcodec === 'none' && f.acodec !== 'none').pop();
+  const audioSize = bestAudio?.filesize || bestAudio?.filesize_approx || (data.duration ? Math.round(data.duration * 320 * 1024 / 8) : null);
+  formats.push({
+    formatId: 'audio-best',
+    label: 'Audio MP3 Studio Quality (320kbps)',
+    ext: 'mp3',
+    quality: '320kbps',
+    isVideo: false,
+    filesize: audioSize,
+    filesizeFormatted: formatBytes(audioSize) || '~5.2 MB'
+  });
+
+  // 2. High Quality AAC/M4A
+  formats.push({
+    formatId: 'audio-m4a',
+    label: 'Audio M4A / AAC Clean (128kbps)',
+    ext: 'm4a',
+    quality: '128kbps',
+    isVideo: false,
+    filesize: audioSize ? Math.round(audioSize * 0.45) : null,
+    filesizeFormatted: formatBytes(audioSize ? Math.round(audioSize * 0.45) : null)
+  });
+
+  // 3. Multi-Resolution Video Parsing (4K, 2K, 1080p, 720p, 480p, 360p)
+  const targetResolutions = [
+    { height: 2160, label: '4K Ultra HD', quality: '2160p' },
+    { height: 1440, label: '2K Quad HD', quality: '1440p' },
+    { height: 1080, label: 'Full HD 1080p', quality: '1080p' },
+    { height: 720, label: 'High Definition', quality: '720p' },
+    { height: 480, label: 'Standard', quality: '480p' },
+    { height: 360, label: 'Compact Economy', quality: '360p' }
+  ];
+
+  for (const res of targetResolutions) {
+    const matchedFormats = rawFormats.filter(f => f.height === res.height && f.vcodec !== 'none');
+    if (matchedFormats.length > 0) {
+      const chosen = matchedFormats.find(f => f.ext === 'mp4') || matchedFormats[matchedFormats.length - 1];
+      const videoSize = chosen.filesize || chosen.filesize_approx;
+      const combinedSize = videoSize ? (audioSize ? videoSize + audioSize : videoSize) : null;
+
+      formats.push({
+        formatId: `bestvideo[height<=${res.height}]+bestaudio/best[height<=${res.height}]/best`,
+        label: `Video MP4 ${res.label} (${res.quality})`,
+        ext: 'mp4',
+        quality: res.quality,
+        fps: chosen.fps || 30,
+        isVideo: true,
+        filesize: combinedSize,
+        filesizeFormatted: formatBytes(combinedSize)
+      });
+    }
+  }
+
+  // 4. Guaranteed Best Quality Fallback
+  if (formats.filter(f => f.isVideo).length === 0) {
+    const rawTotalSize = data.filesize || data.filesize_approx;
+    formats.push({
+      formatId: 'best',
+      label: 'Video MP4 Best Quality Available',
+      ext: 'mp4',
+      quality: 'Best',
+      isVideo: true,
+      filesize: rawTotalSize,
+      filesizeFormatted: formatBytes(rawTotalSize)
+    });
+  }
+
+  return formats;
+}
+
+/**
+ * Extract available subtitles / captions
+ */
+function parseAvailableSubtitles(data) {
+  const subs = [];
+  const allSubs = { ...(data.subtitles || {}), ...(data.automatic_captions || {}) };
+  for (const [langCode, entries] of Object.entries(allSubs)) {
+    const name = (entries && entries[0] && entries[0].name) || langCode.toUpperCase();
+    subs.push({
+      code: langCode,
+      name: `${name} (${langCode})`
+    });
+    if (subs.length >= 10) break;
+  }
+  return subs;
+}
+
+/**
  * Get detailed media information using yt-dlp
  */
 function getMediaInfo(url) {
@@ -67,8 +173,7 @@ function getMediaInfo(url) {
       '-m', 'yt_dlp',
       '--js-runtimes', 'node',
       '-J',
-      '--no-warnings',
-      '--no-call-home'
+      '--no-warnings'
     ];
 
     if (platform === 'youtube') {
@@ -88,6 +193,8 @@ function getMediaInfo(url) {
       args.push('--ffmpeg-location', ffmpegPath);
     }
 
+    args.push(url);
+
     execFile('python', args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
         console.error(`yt-dlp info error for [${url}]:`, stderr || error.message);
@@ -103,7 +210,8 @@ function getMediaInfo(url) {
           duration: 0,
           thumbnail: '',
           webpage_url: url,
-          formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }]
+          formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }],
+          subtitles: []
         });
       }
 
@@ -139,10 +247,8 @@ function getMediaInfo(url) {
         }
 
         const isShort = url.includes('/shorts/') || url.includes('/reel/') || (data.duration && data.duration <= 60);
-
-        const formats = [];
-        formats.push({ formatId: 'audio-best', label: 'Audio MP3 High Quality (320kbps)', ext: 'mp3', quality: '320kbps', isVideo: false });
-        formats.push({ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true });
+        const formats = parseAvailableFormats(data);
+        const subtitles = parseAvailableSubtitles(data);
 
         resolve({
           type: isShort ? 'short' : 'video',
@@ -154,7 +260,8 @@ function getMediaInfo(url) {
           duration: data.duration || 0,
           thumbnail: data.thumbnail || (data.thumbnails && data.thumbnails.length ? data.thumbnails[data.thumbnails.length - 1].url : ''),
           webpage_url: data.webpage_url || url,
-          formats
+          formats,
+          subtitles
         });
       } catch (parseErr) {
         // Fallback for parse errors
@@ -168,7 +275,8 @@ function getMediaInfo(url) {
           duration: 0,
           thumbnail: '',
           webpage_url: url,
-          formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }]
+          formats: [{ formatId: 'best', label: 'Video MP4 Best Quality', ext: 'mp4', quality: 'Best', isVideo: true }],
+          subtitles: []
         });
       }
     });
@@ -184,6 +292,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   let isAudio = false;
   let title = '';
   let outputDir = '';
+  let subtitleLang = null;
   let onProgress = null;
   let onComplete = null;
   let onError = null;
@@ -194,6 +303,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     isAudio = !!(urlOrOptions.audioOnly || urlOrOptions.isAudio);
     title = urlOrOptions.title || '';
     outputDir = urlOrOptions.outputDir || path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Downloads');
+    subtitleLang = urlOrOptions.subtitleLang || null;
     onProgress = urlOrOptions.onProgress;
     onComplete = urlOrOptions.onComplete;
     onError = urlOrOptions.onError;
@@ -215,7 +325,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       '--js-runtimes', 'node',
       '--newline',
       '--no-warnings',
-      '--windows-filenames'
+      '--windows-filenames',
+      '--concurrent-fragments', '5'
     ];
 
     if (platform === 'youtube') {
@@ -225,6 +336,11 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         '--referer', 'https://www.google.com/'
       );
+    }
+
+    // Subtitles Embedding Support
+    if (subtitleLang && typeof subtitleLang === 'string' && subtitleLang !== 'none') {
+      args.push('--write-sub', '--sub-lang', subtitleLang, '--embed-subs');
     }
 
     const hasFfmpeg = ffmpegPath && fs.existsSync(ffmpegPath);
@@ -238,6 +354,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       } else {
         args.push('-f', 'ba/b');
       }
+    } else if (format && format !== 'best') {
+      args.push('-f', format);
     } else {
       args.push('-f', 'b/best');
     }
@@ -254,15 +372,28 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     args.push('-o', outputPath);
     args.push(url);
 
-    console.log(`Starting download: ${url} -> ${outputPath}`);
+    console.log(`Starting Turbo download: ${url} -> ${outputPath}`);
 
     const proc = spawn('python', args);
     let stderrLog = '';
+    let finalDetectedPath = '';
 
     const handleData = (data) => {
       const text = data.toString();
       const lines = text.split('\n');
       for (const line of lines) {
+        if (line.includes('[download]') && line.includes('Destination:')) {
+          const destMatch = line.match(/Destination:\s*(.+)$/);
+          if (destMatch && destMatch[1]) finalDetectedPath = destMatch[1].trim();
+        }
+        if (line.includes('[ExtractAudio]') && line.includes('Destination:')) {
+          const destMatch = line.match(/Destination:\s*(.+)$/);
+          if (destMatch && destMatch[1]) finalDetectedPath = destMatch[1].trim();
+        }
+        if (line.includes('[Merger]') && line.includes('Merging formats into')) {
+          const mergeMatch = line.match(/Merging formats into ["']?([^"']+)["']?/);
+          if (mergeMatch && mergeMatch[1]) finalDetectedPath = mergeMatch[1].trim();
+        }
         if (line.includes('[download]')) {
           const prog = parseProgressLine(line);
           if (prog && prog.percent !== null) {
@@ -280,9 +411,12 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
 
     proc.on('close', (code) => {
       if (code === 0) {
-        console.log(`Download completed successfully in ${outputDir}`);
+        const resolvedPath = (finalDetectedPath && fs.existsSync(finalDetectedPath))
+          ? path.resolve(finalDetectedPath)
+          : path.resolve(outputPath.replace('%(title)s', title).replace('%(ext)s', isAudio ? 'mp3' : 'mp4'));
+        console.log(`Download completed successfully: ${resolvedPath}`);
         onComplete && onComplete();
-        resolve({ success: true, filePath: outputPath });
+        resolve({ success: true, filePath: resolvedPath });
       } else {
         console.error(`Download process exited with code ${code}. Stderr:`, stderrLog);
         const err = new Error(stderrLog.trim() || `yt-dlp process exited with code ${code}`);

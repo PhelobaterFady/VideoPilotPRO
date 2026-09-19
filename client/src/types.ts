@@ -5,7 +5,15 @@ export interface FormatOption {
   label: string;
   ext: string;
   quality: string;
+  fps?: number;
   isVideo: boolean;
+  filesize?: number;
+  filesizeFormatted?: string;
+}
+
+export interface SubtitleOption {
+  code: string;
+  name: string;
 }
 
 export interface PlaylistItem {
@@ -28,6 +36,7 @@ export interface MediaInfo {
   thumbnail: string;
   webpage_url?: string;
   formats?: FormatOption[];
+  subtitles?: SubtitleOption[];
   itemCount?: number;
   items?: PlaylistItem[];
 }
@@ -48,6 +57,8 @@ export interface DownloadQueueItem {
   downloadUrl?: string;
   thumbnail?: string;
   outputDir?: string;
+  filePath?: string;
+  subtitleLang?: string;
 }
 
 export interface HistoryItem {
@@ -59,4 +70,5 @@ export interface HistoryItem {
   downloadDate: string;
   format: string;
   thumbnail: string;
+  filePath?: string;
 }

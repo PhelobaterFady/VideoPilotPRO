@@ -1,9 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 let autoUpdater = null;
 let isUpdateDownloaded = false;
+let tray = null;
+let isQuitting = false;
 
 try {
   const updaterModule = require('electron-updater');
@@ -23,6 +25,54 @@ try {
 }
 
 let mainWindow;
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, 'icon.png');
+  if (fs.existsSync(iconPath)) {
+    try {
+      tray = new Tray(iconPath);
+      const contextMenu = Menu.buildFromTemplate([
+        {
+          label: 'Open VideoPilot Pro',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+            }
+          }
+        },
+        {
+          label: 'Check for Updates',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.webContents.send('check-for-updates');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit VideoPilot Pro',
+          click: () => {
+            isQuitting = true;
+            app.quit();
+          }
+        }
+      ]);
+      tray.setToolTip('VideoPilot Pro Universal Downloader');
+      tray.setContextMenu(contextMenu);
+      tray.on('double-click', () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      });
+    } catch (e) {
+      console.warn('Could not initialize system tray:', e.message);
+    }
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -46,7 +96,6 @@ function createWindow() {
   const appRootHtmlPath = path.join(app.getAppPath(), 'client', 'dist', 'index.html');
   const relativeHtmlPath = path.join(__dirname, '..', 'client', 'dist', 'index.html');
 
-  // Direct load without fragile fs.existsSync checks
   mainWindow.loadFile(appRootHtmlPath).catch((err) => {
     console.warn('appRootHtmlPath load failed, trying relativeHtmlPath:', err.message);
     mainWindow.loadFile(relativeHtmlPath).catch((relErr) => {
@@ -59,6 +108,16 @@ function createWindow() {
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Page load failed:', errorCode, errorDescription);
   });
+
+  mainWindow.on('close', (event) => {
+    if (!isQuitting && tray) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
+  createTray();
 
   // Check for updates 5 seconds after launch
   if (autoUpdater) {
@@ -130,6 +189,59 @@ ipcMain.handle('open-external', async (_event, url) => {
   }
 });
 
+ipcMain.handle('show-in-folder', async (_event, filePath) => {
+  try {
+    if (filePath && typeof filePath === 'string') {
+      const cleanPath = path.normalize(filePath);
+      if (fs.existsSync(cleanPath)) {
+        shell.showItemInFolder(cleanPath);
+        return { success: true };
+      }
+      const parentDir = path.dirname(cleanPath);
+      if (fs.existsSync(parentDir)) {
+        shell.openPath(parentDir);
+        return { success: true };
+      }
+    }
+    return { success: false, error: 'Target file or folder not found on disk' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('open-file', async (_event, filePath) => {
+  try {
+    if (filePath && typeof filePath === 'string') {
+      const cleanPath = path.normalize(filePath);
+      if (fs.existsSync(cleanPath)) {
+        const errorMsg = await shell.openPath(cleanPath);
+        return { success: !errorMsg, error: errorMsg || null };
+      }
+    }
+    return { success: false, error: 'File does not exist on disk' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('show-notification', async (_event, payload) => {
+  try {
+    if (Notification.isSupported()) {
+      const iconPath = path.join(__dirname, 'icon.png');
+      const notif = new Notification({
+        title: payload?.title || 'VideoPilot Pro',
+        body: payload?.body || 'Media download completed successfully!',
+        icon: fs.existsSync(iconPath) ? iconPath : undefined
+      });
+      notif.show();
+      return { success: true };
+    }
+    return { success: false, reason: 'Notifications not supported' };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-maximize', () => {
   if (mainWindow?.isMaximized()) {
@@ -138,7 +250,13 @@ ipcMain.on('window-maximize', () => {
     mainWindow?.maximize();
   }
 });
-ipcMain.on('window-close', () => mainWindow?.close());
+ipcMain.on('window-close', () => {
+  if (tray) {
+    mainWindow?.hide();
+  } else {
+    mainWindow?.close();
+  }
+});
 
 ipcMain.handle('select-folder', async () => {
   try {
@@ -161,9 +279,14 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else mainWindow?.show();
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && !tray) app.quit();
 });

@@ -82,7 +82,7 @@ app.post('/api/batch-info', verifyAppSecret, async (req, res) => {
 // Direct download execution endpoint
 app.post('/api/download', verifyAppSecret, async (req, res) => {
   try {
-    const { url, format, audioOnly, title, outputDir } = req.body;
+    const { url, format, audioOnly, title, outputDir, subtitleLang } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
@@ -94,7 +94,8 @@ app.post('/api/download', verifyAppSecret, async (req, res) => {
       format,
       audioOnly: !!audioOnly,
       title,
-      outputDir
+      outputDir,
+      subtitleLang
     });
 
     return res.json({

@@ -11,8 +11,9 @@ import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import type { ThemeType } from './components/SettingsView';
-import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem } from './types';
-import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud } from 'lucide-react';
+import { MediaPlayerModal } from './components/MediaPlayerModal';
+import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
+import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 const CURRENT_VERSION = '1.2.0';
@@ -53,6 +54,18 @@ export function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [downloadQueue, setDownloadQueue] = useState<DownloadQueueItem[]>([]);
   
+  const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
+  const [dismissedClipboardUrl, setDismissedClipboardUrl] = useState<string | null>(null);
+
+  const [activePlayerMedia, setActivePlayerMedia] = useState<{
+    isOpen: boolean;
+    title: string;
+    filePath?: string;
+    url?: string;
+    thumbnail?: string;
+    isAudio?: boolean;
+  } | null>(null);
+
   const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<{
     checked: boolean;
@@ -205,6 +218,73 @@ export function App() {
     }
   }, []);
 
+  // Auto-detect media links copied to clipboard
+  useEffect(() => {
+    const checkClipboard = async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.readText) return;
+        const text = await navigator.clipboard.readText();
+        if (!text) return;
+        const trimmed = text.trim();
+        if (
+          (trimmed.startsWith('http://') || trimmed.startsWith('https://')) &&
+          /(youtube\.com|youtu\.be|tiktok\.com|instagram\.com|facebook\.com|fb\.watch|twitter\.com|x\.com|vimeo\.com|soundcloud\.com)/i.test(trimmed) &&
+          trimmed !== dismissedClipboardUrl &&
+          trimmed !== currentMedia?.webpage_url
+        ) {
+          setClipboardDetectedUrl(trimmed);
+        }
+      } catch (e) {
+        // Clipboard access might be denied or unsupported
+      }
+    };
+
+    window.addEventListener('focus', checkClipboard);
+    const interval = setInterval(checkClipboard, 3000);
+
+    return () => {
+      window.removeEventListener('focus', checkClipboard);
+      clearInterval(interval);
+    };
+  }, [dismissedClipboardUrl, currentMedia]);
+
+  const handleOpenFile = async (filePath: string) => {
+    if (!filePath) return;
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        await ipcRenderer.invoke('open-file', filePath);
+        return;
+      } catch (e) {
+        console.warn('IPC open-file failed:', e);
+      }
+    }
+  };
+
+  const handleShowInFolder = async (filePath: string) => {
+    if (!filePath) return;
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        await ipcRenderer.invoke('show-in-folder', filePath);
+        return;
+      } catch (e) {
+        console.warn('IPC show-in-folder failed:', e);
+      }
+    }
+  };
+
+  const handlePlayMedia = (media: { title: string; filePath?: string; url?: string; thumbnail?: string; isAudio?: boolean }) => {
+    setActivePlayerMedia({
+      isOpen: true,
+      title: media.title,
+      filePath: media.filePath,
+      url: media.url,
+      thumbnail: media.thumbnail,
+      isAudio: media.isAudio
+    });
+  };
+
   const handleSelectFolder = async () => {
     if ((window as any).require) {
       try {
@@ -260,7 +340,8 @@ export function App() {
     format: string,
     isAudio: boolean,
     title: string,
-    platform = currentMedia?.platform || 'unknown',
+    subtitleLang?: string,
+    platform: PlatformType = (currentMedia?.platform || 'unknown') as PlatformType,
     customThumbnail?: string
   ) => {
     if (!downloadPath || downloadPath.trim() === '') {
@@ -277,14 +358,15 @@ export function App() {
       url,
       platform,
       format,
-      quality: isAudio ? 'MP3 320kbps' : 'Best Quality',
+      quality: isAudio ? 'MP3 320kbps' : (format.toUpperCase() || 'Best Quality'),
       isAudio,
       progress: 20,
-      speed: 'Downloading...',
+      speed: 'Turbo fragments...',
       eta: '--:--',
       status: 'downloading',
       thumbnail: itemThumbnail,
-      outputDir: downloadPath
+      outputDir: downloadPath,
+      subtitleLang
     };
 
     setDownloadQueue(prev => [newQueueItem, ...prev]);
@@ -301,7 +383,8 @@ export function App() {
           format,
           audioOnly: isAudio,
           title,
-          outputDir: downloadPath
+          outputDir: downloadPath,
+          subtitleLang
         })
       });
 
@@ -310,8 +393,16 @@ export function App() {
         throw new Error(json.error || 'Download failed');
       }
 
+      const savedFilePath = json.filePath || '';
+
       setDownloadQueue(prev =>
-        prev.map(q => q.id === queueId ? { ...q, progress: 100, status: 'completed', speed: 'Saved' } : q)
+        prev.map(q => q.id === queueId ? {
+          ...q,
+          progress: 100,
+          status: 'completed',
+          speed: 'Saved',
+          filePath: savedFilePath
+        } : q)
       );
 
       const newHistoryItem: HistoryItem = {
@@ -322,10 +413,24 @@ export function App() {
         type: isAudio ? 'audio' : 'video',
         downloadDate: new Date().toISOString(),
         format: isAudio ? 'MP3' : 'MP4',
-        thumbnail: itemThumbnail
+        thumbnail: itemThumbnail,
+        filePath: savedFilePath
       };
 
       setHistory(prev => [newHistoryItem, ...prev.slice(0, 49)]);
+
+      // Desktop Native Notification
+      if ((window as any).require) {
+        try {
+          const { ipcRenderer } = (window as any).require('electron');
+          ipcRenderer.invoke('show-notification', {
+            title: 'Download Completed! 🎉',
+            body: `${title} has been successfully downloaded.`
+          });
+        } catch (e) {
+          console.warn('Desktop notification error:', e);
+        }
+      }
     } catch (err: any) {
       console.error('Download execution error:', err);
       setDownloadQueue(prev =>
@@ -366,7 +471,8 @@ export function App() {
             'best',
             false,
             item.data.title || `Media Video ${idx + 1}`,
-            item.data.platform || 'unknown',
+            undefined,
+            (item.data.platform || 'unknown') as PlatformType,
             item.data.thumbnail || ''
           );
         } else {
@@ -375,6 +481,7 @@ export function App() {
             'best',
             false,
             `Media Video ${idx + 1}`,
+            undefined,
             'unknown',
             ''
           );
@@ -400,7 +507,8 @@ export function App() {
         format,
         isAudio,
         item.title,
-        currentMedia?.platform || 'youtube',
+        undefined,
+        (currentMedia?.platform || 'youtube') as PlatformType,
         item.thumbnail
       );
     });
@@ -439,6 +547,42 @@ export function App() {
                 <DownloadCloud className="w-4 h-4" />
                 <span>{updateInfo.url === 'ready' ? 'Restart & Install' : 'Update Now'}</span>
               </button>
+            </div>
+          )}
+
+          {/* Floating Clipboard Quick-Action Banner */}
+          {clipboardDetectedUrl && (
+            <div className="max-w-5xl mx-auto mb-4 p-3.5 rounded-2xl bg-zinc-900/90 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl backdrop-blur-md">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0">
+                  <ClipboardCopy className="w-4 h-4" />
+                </div>
+                <div className="truncate">
+                  <span className="text-xs font-semibold text-emerald-400">Media link detected in clipboard: </span>
+                  <span className="text-xs text-zinc-300 font-mono truncate">{clipboardDetectedUrl}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    handleAnalyzeUrl(clipboardDetectedUrl);
+                    setClipboardDetectedUrl(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow"
+                >
+                  Paste & Analyze
+                </button>
+                <button
+                  onClick={() => {
+                    setDismissedClipboardUrl(clipboardDetectedUrl);
+                    setClipboardDetectedUrl(null);
+                  }}
+                  className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all"
+                  title="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -507,7 +651,18 @@ export function App() {
                   {currentMedia.type === 'playlist' ? (
                     <PlaylistView playlist={currentMedia} onBatchDownload={handleBatchPlaylistDownload} />
                   ) : (
-                    <VideoPreviewCard media={currentMedia} onDownload={triggerSingleDownload} />
+                    <VideoPreviewCard
+                      media={currentMedia}
+                      onDownload={triggerSingleDownload}
+                      onPlayPreview={(url, title, isVideo) => {
+                        handlePlayMedia({
+                          title,
+                          url,
+                          thumbnail: currentMedia.thumbnail,
+                          isAudio: !isVideo
+                        });
+                      }}
+                    />
                   )}
                 </>
               )}
@@ -515,6 +670,15 @@ export function App() {
               <ProgressQueue
                 queue={downloadQueue}
                 onClearCompleted={() => setDownloadQueue(prev => prev.filter(i => i.status !== 'completed'))}
+                onOpenFile={handleOpenFile}
+                onShowInFolder={handleShowInFolder}
+                onPlayMedia={(filePath, title, isVideo) => {
+                  handlePlayMedia({
+                    title,
+                    filePath,
+                    isAudio: !isVideo
+                  });
+                }}
               />
             </div>
           )}
@@ -531,6 +695,9 @@ export function App() {
             <HistoryView
               history={history}
               onClearHistory={() => setHistory([])}
+              onOpenFile={handleOpenFile}
+              onShowInFolder={handleShowInFolder}
+              onPlayMedia={handlePlayMedia}
             />
           )}
 
@@ -548,6 +715,17 @@ export function App() {
           )}
         </main>
       </div>
+
+      {/* In-App Media Player Modal */}
+      {activePlayerMedia && activePlayerMedia.isOpen && (
+        <MediaPlayerModal
+          mediaUrl={activePlayerMedia.filePath || activePlayerMedia.url || ''}
+          title={activePlayerMedia.title}
+          isVideo={!activePlayerMedia.isAudio}
+          onClose={() => setActivePlayerMedia(null)}
+          thumbnail={activePlayerMedia.thumbnail}
+        />
+      )}
 
       <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} />
     </div>
