@@ -5,12 +5,23 @@ const fs = require('fs');
 let ffmpegPath = null;
 try {
   ffmpegPath = require('ffmpeg-static');
-  if (typeof ffmpegPath === 'string') {
-    // Unpack ASAR path for Electron production builds
-    ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
-  }
 } catch (e) {
-  console.warn('ffmpeg-static module not found, relying on system ffmpeg');
+  // Fallback lookups
+  const candidatePaths = [
+    path.join(__dirname, '../node_modules/ffmpeg-static/ffmpeg.exe'),
+    path.join(__dirname, '../../server/node_modules/ffmpeg-static/ffmpeg.exe'),
+    path.join(__dirname, '../../node_modules/ffmpeg-static/ffmpeg.exe')
+  ];
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      ffmpegPath = p;
+      break;
+    }
+  }
+}
+
+if (typeof ffmpegPath === 'string') {
+  ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
 }
 
 /**
@@ -46,7 +57,7 @@ function parseProgressLine(line) {
 }
 
 /**
- * Get detailed media information using yt-dlp with robust Facebook & Social User-Agent
+ * Get detailed media information using yt-dlp
  */
 function getMediaInfo(url) {
   return new Promise((resolve, reject) => {
@@ -57,11 +68,17 @@ function getMediaInfo(url) {
       '--js-runtimes', 'node',
       '-J',
       '--no-warnings',
-      '--no-call-home',
-      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      '--referer', 'https://www.google.com/',
-      url
+      '--no-call-home'
     ];
+
+    if (platform === 'youtube') {
+      args.push('--extractor-args', 'youtube:player_client=android,web');
+    } else {
+      args.push(
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        '--referer', 'https://www.google.com/'
+      );
+    }
 
     if (url.includes('list=') || url.includes('playlist')) {
       args.push('--flat-playlist');
@@ -192,14 +209,23 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   }
 
   return new Promise((resolve, reject) => {
+    const platform = detectPlatform(url);
     const args = [
       '-m', 'yt_dlp',
       '--js-runtimes', 'node',
       '--newline',
       '--no-warnings',
-      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      '--referer', 'https://www.google.com/'
+      '--windows-filenames'
     ];
+
+    if (platform === 'youtube') {
+      args.push('--extractor-args', 'youtube:player_client=android,web');
+    } else {
+      args.push(
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        '--referer', 'https://www.google.com/'
+      );
+    }
 
     const hasFfmpeg = ffmpegPath && fs.existsSync(ffmpegPath);
     if (hasFfmpeg) {
@@ -231,6 +257,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     console.log(`Starting download: ${url} -> ${outputPath}`);
 
     const proc = spawn('python', args);
+    let stderrLog = '';
 
     const handleData = (data) => {
       const text = data.toString();
@@ -246,7 +273,10 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     };
 
     proc.stdout.on('data', handleData);
-    proc.stderr.on('data', handleData);
+    proc.stderr.on('data', (d) => {
+      stderrLog += d.toString();
+      handleData(d);
+    });
 
     proc.on('close', (code) => {
       if (code === 0) {
@@ -254,8 +284,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
         onComplete && onComplete();
         resolve({ success: true, filePath: outputPath });
       } else {
-        console.error(`Download process exited with code ${code}`);
-        const err = new Error(`yt-dlp process exited with code ${code}`);
+        console.error(`Download process exited with code ${code}. Stderr:`, stderrLog);
+        const err = new Error(stderrLog.trim() || `yt-dlp process exited with code ${code}`);
         onError && onError(err);
         reject(err);
       }
