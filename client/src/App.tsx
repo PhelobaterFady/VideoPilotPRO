@@ -502,23 +502,67 @@ export function App() {
     }
   };
 
+  interface DownloadTriggerOptions {
+    url: string;
+    format: string;
+    isAudio: boolean;
+    title: string;
+    subtitleLang?: string;
+    clipStart?: string;
+    clipEnd?: string;
+    platform?: PlatformType;
+    customThumbnail?: string;
+  }
+
   const triggerSingleDownload = async (
-    url: string,
-    format: string,
-    isAudio: boolean,
-    title: string,
-    subtitleLang?: string,
-    clipStart?: string,
-    clipEnd?: string,
-    platform: PlatformType = (currentMedia?.platform || 'unknown') as PlatformType,
-    customThumbnail?: string
+    urlOrOptions: string | DownloadTriggerOptions,
+    formatArg?: string,
+    isAudioArg?: boolean,
+    titleArg?: string,
+    subtitleLangArg?: string,
+    clipStartArg?: string,
+    clipEndArg?: string,
+    platformArg?: PlatformType,
+    customThumbnailArg?: string
   ) => {
+    let url: string;
+    let format: string;
+    let isAudio: boolean;
+    let title: string;
+    let subtitleLang: string | undefined;
+    let clipStart: string | undefined;
+    let clipEnd: string | undefined;
+    let platform: PlatformType;
+    let customThumbnail: string | undefined;
+
+    if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
+      url = urlOrOptions.url;
+      format = urlOrOptions.format || 'best';
+      isAudio = !!urlOrOptions.isAudio;
+      title = urlOrOptions.title || 'Media Video';
+      subtitleLang = urlOrOptions.subtitleLang;
+      clipStart = urlOrOptions.clipStart;
+      clipEnd = urlOrOptions.clipEnd;
+      platform = urlOrOptions.platform || ((currentMedia?.platform || 'unknown') as PlatformType);
+      customThumbnail = urlOrOptions.customThumbnail;
+    } else {
+      url = urlOrOptions;
+      format = formatArg || 'best';
+      isAudio = !!isAudioArg;
+      title = titleArg || 'Media Video';
+      subtitleLang = subtitleLangArg;
+      clipStart = clipStartArg;
+      clipEnd = clipEndArg;
+      platform = platformArg || ((currentMedia?.platform || 'unknown') as PlatformType);
+      customThumbnail = customThumbnailArg;
+    }
+
     if (!downloadPath || downloadPath.trim() === '') {
       setErrorMessage('⚠️ Save location is not set! Please configure your download folder in Settings & Storage first.');
       return;
     }
 
-    const itemThumbnail = customThumbnail || (currentMedia && currentMedia.webpage_url === url ? currentMedia.thumbnail : '') || customThumbnail || '';
+    const itemThumbnail = customThumbnail || (currentMedia && currentMedia.webpage_url === url ? currentMedia.thumbnail : '') || '';
     const queueId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
     const isClipped = !!((clipStart && clipStart.trim() !== '') || (clipEnd && clipEnd.trim() !== ''));
@@ -740,25 +784,23 @@ export function App() {
       json.items.forEach((item: any, idx: number) => {
         const url = urls[idx] || item.url;
         if (item.success && item.data) {
-          triggerSingleDownload(
-            item.data.webpage_url || url,
-            'best',
-            false,
-            item.data.title || `Media Video ${idx + 1}`,
-            undefined,
-            (item.data.platform || 'unknown') as PlatformType,
-            item.data.thumbnail || ''
-          );
+          triggerSingleDownload({
+            url: item.data.webpage_url || url,
+            format: 'best',
+            isAudio: false,
+            title: item.data.title || `Media Video ${idx + 1}`,
+            platform: (item.data.platform || 'unknown') as PlatformType,
+            customThumbnail: item.data.thumbnail || ''
+          });
         } else {
-          triggerSingleDownload(
+          triggerSingleDownload({
             url,
-            'best',
-            false,
-            `Media Video ${idx + 1}`,
-            undefined,
-            'unknown',
-            ''
-          );
+            format: 'best',
+            isAudio: false,
+            title: `Media Video ${idx + 1}`,
+            platform: 'unknown',
+            customThumbnail: ''
+          });
         }
       });
 
@@ -776,15 +818,14 @@ export function App() {
       return;
     }
     items.forEach(item => {
-      triggerSingleDownload(
-        item.url,
+      triggerSingleDownload({
+        url: item.url,
         format,
         isAudio,
-        item.title,
-        undefined,
-        (currentMedia?.platform || 'youtube') as PlatformType,
-        item.thumbnail
-      );
+        title: item.title,
+        platform: (currentMedia?.platform || 'youtube') as PlatformType,
+        customThumbnail: item.thumbnail
+      });
     });
   };
 

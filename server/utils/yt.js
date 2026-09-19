@@ -398,10 +398,17 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     ];
 
     // Video Section Trimming / Clipping
-    if ((clipStart && clipStart.trim() !== '') || (clipEnd && clipEnd.trim() !== '')) {
-      const s = (clipStart && clipStart.trim() !== '') ? clipStart.trim() : '0';
-      const e = (clipEnd && clipEnd.trim() !== '') ? clipEnd.trim() : 'inf';
-      args.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
+    if ((clipStart && typeof clipStart === 'string' && clipStart.trim() !== '') || (clipEnd && typeof clipEnd === 'string' && clipEnd.trim() !== '')) {
+      const s = (clipStart && typeof clipStart === 'string' && clipStart.trim() !== '') ? clipStart.trim() : '0';
+      const e = (clipEnd && typeof clipEnd === 'string' && clipEnd.trim() !== '') ? clipEnd.trim() : 'inf';
+      
+      // Strict timestamp format check: only allow digits, colons, decimal seconds, or 'inf'
+      const timeRegex = /^(\d+(:[0-5]?\d){0,2}(\.\d+)?|inf)$/i;
+      if (timeRegex.test(s) && timeRegex.test(e)) {
+        args.push('--download-sections', `*${s}-${e}`, '--force-keyframes-at-cuts');
+      } else {
+        console.warn(`[yt-dlp] Ignored invalid clip time range: start="${s}", end="${e}"`);
+      }
     }
 
     // Bandwidth Speed Limiter
