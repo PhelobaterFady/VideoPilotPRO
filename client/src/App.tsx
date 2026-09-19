@@ -88,21 +88,6 @@ export function App() {
     localStorage.setItem('videopilot_theme', activeTheme);
   }, [activeTheme]);
 
-  const triggerDemoUpdate = () => {
-    setUpdateInfo({
-      available: true,
-      version: '1.2.0',
-      url: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
-    });
-    setUpdateStatus({
-      checked: true,
-      isLatest: false,
-      latestVersion: '1.2.0',
-      downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
-      releaseNotes: 'Fixed download speeds, enhanced 320kbps MP3 audio conversion, and new customization themes.'
-    });
-  };
-
   const handleTriggerUpdate = (downloadUrl?: string) => {
     if (updateInfo?.url === 'ready') {
       if ((window as any).require) {
@@ -555,7 +540,6 @@ export function App() {
               onChangePath={handleSelectFolder}
               currentVersion={CURRENT_VERSION}
               onCheckUpdate={checkVersionRealtime}
-              onTriggerDemoUpdate={triggerDemoUpdate}
               updateStatus={updateStatus}
               onDownloadUpdate={handleTriggerUpdate}
               activeTheme={activeTheme}

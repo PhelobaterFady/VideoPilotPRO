@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check, Zap } from 'lucide-react';
+import { Folder, HardDrive, Cpu, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Palette, Check } from 'lucide-react';
 
 export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
 
@@ -8,7 +8,6 @@ interface SettingsViewProps {
   onChangePath: () => void;
   currentVersion?: string;
   onCheckUpdate?: () => Promise<void>;
-  onTriggerDemoUpdate?: () => void;
   updateStatus?: {
     checked: boolean;
     isLatest: boolean;
@@ -25,9 +24,8 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({
   downloadPath,
   onChangePath,
-  currentVersion = '1.1.0',
+  currentVersion = '1.2.0',
   onCheckUpdate,
-  onTriggerDemoUpdate,
   updateStatus,
   onDownloadUpdate,
   activeTheme = 'emerald',
@@ -195,17 +193,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {onTriggerDemoUpdate && (
-              <button
-                onClick={onTriggerDemoUpdate}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all shadow"
-                title="Test update banner UI"
-              >
-                <Zap className="w-4 h-4 text-amber-400" />
-                <span>Test Update Banner</span>
-              </button>
-            )}
-
             <button
               onClick={handleCheck}
               disabled={isChecking}
