@@ -140,15 +140,40 @@ function createWindow() {
 }
 
 if (autoUpdater) {
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for updates...');
+    mainWindow?.webContents.send('update-checking');
+  });
+
   autoUpdater.on('update-available', (info) => {
     console.log('Update available event:', info);
     mainWindow?.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available:', info);
+    mainWindow?.webContents.send('update-not-available', info);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    console.log(`Update download progress: ${Math.round(progressObj.percent)}%`);
+    mainWindow?.webContents.send('update-download-progress', {
+      percent: Math.round(progressObj.percent || 0),
+      bytesPerSecond: progressObj.bytesPerSecond || 0,
+      transferred: progressObj.transferred || 0,
+      total: progressObj.total || 0
+    });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded event:', info);
     isUpdateDownloaded = true;
     mainWindow?.webContents.send('update-ready', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.warn('autoUpdater error event:', err?.message || err);
+    mainWindow?.webContents.send('update-error', { error: err?.message || 'Update failed' });
   });
 }
 
@@ -182,7 +207,8 @@ ipcMain.on('check-for-updates', async () => {
 
 ipcMain.on('restart-and-update', () => {
   if (autoUpdater && isUpdateDownloaded) {
-    autoUpdater.quitAndInstall();
+    // false = show installation progress if any, true = force relaunch app after install
+    autoUpdater.quitAndInstall(false, true);
   }
 });
 

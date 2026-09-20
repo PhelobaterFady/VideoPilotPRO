@@ -18,7 +18,7 @@ import { QrShareModal } from './components/QrShareModal';
 import { TranscriptModal } from './components/TranscriptModal';
 import { MediaCompressorModal } from './components/MediaCompressorModal';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
-import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud } from 'lucide-react';
+import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud, CheckCircle2 } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 const CURRENT_VERSION = '1.3.1';
@@ -89,7 +89,16 @@ export function App() {
 
 
 
-  const [updateInfo, setUpdateInfo] = useState<{ available: boolean; version?: string; url?: string } | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<{
+    available: boolean;
+    version?: string;
+    url?: string;
+    isDownloading?: boolean;
+    percent?: number;
+    speed?: number;
+    transferred?: number;
+    total?: number;
+  } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<{
     checked: boolean;
     isLatest: boolean;
@@ -410,8 +419,14 @@ export function App() {
         } catch (e) {}
       }
     }
+    if ((window as any).require && updateInfo?.isDownloading) {
+      addToast('info', 'Update is downloading automatically in the background. The app will prompt you to restart once ready!', 'Auto-Update in Progress');
+      return;
+    }
     const targetUrl = downloadUrl || updateStatus?.downloadUrl || updateInfo?.url || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest';
-    openExternalUrl(targetUrl);
+    if (targetUrl !== 'ready' && targetUrl !== 'downloading') {
+      openExternalUrl(targetUrl);
+    }
   };
 
   const checkVersionRealtime = async () => {
@@ -477,24 +492,50 @@ export function App() {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.on('update-available', (_: any, info: any) => {
           const ver = info?.version || '1.3.1';
-          setUpdateInfo({ available: true, version: ver });
+          setUpdateInfo(prev => ({
+            available: true,
+            version: ver,
+            url: prev?.url || 'downloading',
+            isDownloading: true,
+            percent: prev?.percent || 0
+          }));
           setUpdateStatus({
             checked: true,
             isLatest: false,
             latestVersion: ver,
-            downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
+            downloadUrl: 'downloading'
           });
+        });
+
+        ipcRenderer.on('update-download-progress', (_: any, progress: any) => {
+          setUpdateInfo(prev => ({
+            available: true,
+            version: prev?.version || '1.3.1',
+            url: 'downloading',
+            isDownloading: true,
+            percent: Math.round(progress?.percent || 0),
+            speed: progress?.bytesPerSecond,
+            transferred: progress?.transferred,
+            total: progress?.total
+          }));
         });
 
         ipcRenderer.on('update-ready', (_: any, info: any) => {
           const ver = info?.version || '1.3.1';
-          setUpdateInfo({ available: true, version: ver, url: 'ready' });
+          setUpdateInfo({
+            available: true,
+            version: ver,
+            url: 'ready',
+            isDownloading: false,
+            percent: 100
+          });
           setUpdateStatus({
             checked: true,
             isLatest: false,
             latestVersion: ver,
             downloadUrl: 'ready'
           });
+          addToast('success', `Update v${ver} downloaded! Click Restart & Install to apply now.`, 'Update Ready');
         });
 
         ipcRenderer.on('update-check-result', (_: any, result: any) => {
@@ -1087,23 +1128,97 @@ export function App() {
         <main className="flex-1 overflow-y-auto px-6 md:px-10 py-6 bg-[#07090e] custom-aerospace-scrollbar">
           {/* Update Banner */}
           {updateInfo?.available && (
-            <div className="w-full mb-6 p-4 rounded-xl bg-gradient-to-r from-[rgba(0,229,255,0.12)] via-[rgba(0,230,118,0.08)] to-transparent border border-[rgba(0,229,255,0.3)] flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,229,255,0.08)]">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[rgba(0,229,255,0.15)] text-[#00e5ff] flex items-center justify-center border border-[rgba(0,229,255,0.3)] flex-shrink-0 animate-pulse">
-                  <RefreshCw className="w-5 h-5" />
+            <div className={`w-full mb-6 p-4 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl transition-all ${
+              updateInfo.url === 'ready'
+                ? 'bg-gradient-to-r from-[rgba(0,230,118,0.18)] via-[rgba(0,230,118,0.08)] to-transparent border-[rgba(0,230,118,0.4)] shadow-[0_0_30px_rgba(0,230,118,0.15)]'
+                : 'bg-gradient-to-r from-[rgba(0,229,255,0.14)] via-[rgba(0,230,118,0.08)] to-transparent border-[rgba(0,229,255,0.3)] shadow-[0_0_30px_rgba(0,229,255,0.1)]'
+            }`}>
+              <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center border flex-shrink-0 ${
+                  updateInfo.url === 'ready'
+                    ? 'bg-[rgba(0,230,118,0.2)] text-[#00e676] border-[rgba(0,230,118,0.4)] shadow-[0_0_15px_rgba(0,230,118,0.3)]'
+                    : 'bg-[rgba(0,229,255,0.15)] text-[#00e5ff] border-[rgba(0,229,255,0.3)] animate-pulse'
+                }`}>
+                  {updateInfo.url === 'ready' ? <CheckCircle2 className="w-6 h-6" /> : <RefreshCw className="w-5 h-5 animate-spin" />}
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold font-display text-white">New Core Firmware Available ({updateInfo.version || 'v1.3.1'})</h4>
-                  <p className="text-xs text-[rgba(240,244,248,0.6)] font-mono">A new optimized extraction core is ready. Update now to ensure full protocol compatibility.</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-bold font-display text-white">
+                      {updateInfo.url === 'ready'
+                        ? `Update v${updateInfo.version || '1.3.1'} Ready to Install!`
+                        : `New Engine Firmware (v${updateInfo.version || '1.3.1'}) Downloading Automatically...`}
+                    </h4>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                      updateInfo.url === 'ready'
+                        ? 'bg-[rgba(0,230,118,0.2)] text-[#00e676] border-[rgba(0,230,118,0.4)]'
+                        : 'bg-[rgba(0,229,255,0.15)] text-[#00e5ff] border-[rgba(0,229,255,0.3)]'
+                    }`}>
+                      {updateInfo.url === 'ready' ? '1-CLICK RESTART' : 'AUTO-UPDATE'}
+                    </span>
+                  </div>
+                  
+                  {updateInfo.isDownloading && (
+                    <div className="mt-2 space-y-1.5 w-full max-w-md">
+                      <div className="flex items-center justify-between text-[11px] font-mono text-zinc-300">
+                        <span className="text-[#00e5ff] font-bold">Progress: {updateInfo.percent || 0}%</span>
+                        {updateInfo.total && (
+                          <span className="text-[#8290A5]">
+                            {((updateInfo.transferred || 0) / 1024 / 1024).toFixed(1)} MB / {((updateInfo.total || 0) / 1024 / 1024).toFixed(1)} MB
+                            {updateInfo.speed ? ` • ${((updateInfo.speed) / 1024 / 1024).toFixed(1)} MB/s` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-black/50 border border-white/10 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#00e5ff] to-[#00e676] transition-all duration-300 shadow-[0_0_10px_#00e5ff]"
+                          style={{ width: `${Math.max(5, updateInfo.percent || 0)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!updateInfo.isDownloading && updateInfo.url !== 'ready' && (
+                    <p className="text-xs text-[rgba(240,244,248,0.6)] font-mono">
+                      Background downloader active. The update will apply automatically without manual installation.
+                    </p>
+                  )}
+
+                  {updateInfo.url === 'ready' && (
+                    <p className="text-xs text-[#00e676] font-mono">
+                      ✓ Package verified and ready. Click button to restart application and run v{updateInfo.version || '1.3.1'} immediately.
+                    </p>
+                  )}
                 </div>
               </div>
-              <button
-                onClick={() => handleTriggerUpdate(updateInfo.url)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-[#00e5ff] to-[#00b0ff] text-[#07090e] transition-all shadow-[0_0_15px_rgba(0,229,255,0.25)] flex-shrink-0 cursor-pointer"
-              >
-                <DownloadCloud className="w-4 h-4" />
-                <span>{updateInfo.url === 'ready' ? 'Restart & Deploy' : 'Deploy Update'}</span>
-              </button>
+
+              <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+                <button
+                  onClick={() => handleTriggerUpdate(updateInfo.url)}
+                  disabled={updateInfo.isDownloading && updateInfo.url !== 'ready'}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold font-display transition-all shadow-lg cursor-pointer ${
+                    updateInfo.url === 'ready'
+                      ? 'bg-gradient-to-r from-[#00e676] to-[#00c853] text-[#07090e] shadow-[0_0_20px_rgba(0,230,118,0.4)] hover:brightness-110'
+                      : 'bg-gradient-to-r from-[#00e5ff] to-[#00b0ff] text-[#07090e] shadow-[0_0_15px_rgba(0,229,255,0.25)] hover:brightness-110 disabled:opacity-60 disabled:cursor-wait'
+                  }`}
+                >
+                  {updateInfo.url === 'ready' ? (
+                    <>
+                      <Sparkles className="w-4 h-4 fill-black" />
+                      <span>Restart & Apply Update</span>
+                    </>
+                  ) : updateInfo.isDownloading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Downloading {updateInfo.percent || 0}%...</span>
+                    </>
+                  ) : (
+                    <>
+                      <DownloadCloud className="w-4 h-4" />
+                      <span>Downloading Update...</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 
