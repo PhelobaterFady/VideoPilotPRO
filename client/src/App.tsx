@@ -699,34 +699,35 @@ export function App() {
     platformArg?: PlatformType,
     customThumbnailArg?: string
   ) => {
-    let url: string;
-    let format: string;
-    let isAudio: boolean;
-    let title: string;
-    let subtitleLang: string | undefined;
-    let clipStart: string | undefined;
-    let clipEnd: string | undefined;
-    let platform: PlatformType;
-    let customThumbnail: string | undefined;
-    let audioBoost: string | undefined;
-    let playbackSpeed: number | undefined;
-    let uploader: string | undefined;
+    let url: string = '';
+    let format: string = 'best';
+    let isAudio: boolean = false;
+    let title: string = 'Media Video';
+    let subtitleLang: string | undefined = undefined;
+    let clipStart: string | undefined = undefined;
+    let clipEnd: string | undefined = undefined;
+    let platform: PlatformType = 'unknown';
+    let customThumbnail: string | undefined = undefined;
+    let audioBoost: string | undefined = undefined;
+    let playbackSpeed: number | undefined = undefined;
+    let uploader: string | undefined = undefined;
 
     if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
-      url = urlOrOptions.url;
-      format = urlOrOptions.format || 'best';
-      isAudio = !!urlOrOptions.isAudio;
-      title = urlOrOptions.title || 'Media Video';
-      subtitleLang = urlOrOptions.subtitleLang;
-      clipStart = urlOrOptions.clipStart;
-      clipEnd = urlOrOptions.clipEnd;
-      platform = urlOrOptions.platform || ((currentMedia?.platform || 'unknown') as PlatformType);
-      customThumbnail = urlOrOptions.customThumbnail;
-      audioBoost = urlOrOptions.audioBoost;
-      playbackSpeed = urlOrOptions.playbackSpeed;
-      uploader = urlOrOptions.uploader || currentMedia?.uploader || '';
+      const opts = urlOrOptions as DownloadTriggerOptions;
+      url = opts.url || '';
+      format = opts.format || 'best';
+      isAudio = !!opts.isAudio;
+      title = opts.title || 'Media Video';
+      subtitleLang = opts.subtitleLang;
+      clipStart = opts.clipStart;
+      clipEnd = opts.clipEnd;
+      platform = opts.platform || ((currentMedia?.platform || 'unknown') as PlatformType);
+      customThumbnail = opts.customThumbnail;
+      audioBoost = opts.audioBoost;
+      playbackSpeed = opts.playbackSpeed;
+      uploader = opts.uploader || currentMedia?.uploader || '';
     } else {
-      url = urlOrOptions;
+      url = typeof urlOrOptions === 'string' ? urlOrOptions : (urlOrOptions as any)?.url || '';
       format = formatArg || 'best';
       isAudio = !!isAudioArg;
       title = titleArg || 'Media Video';
