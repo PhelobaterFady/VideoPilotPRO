@@ -9,6 +9,17 @@ const serverIndexPath = path.join(rootDir, 'server', 'index.js');
 const apiIndexPath = path.join(rootDir, 'api', 'index.js');
 const settingsViewPath = path.join(rootDir, 'client', 'src', 'components', 'SettingsView.tsx');
 const statusBarPath = path.join(rootDir, 'client', 'src', 'components', 'StatusBar.tsx');
+const envPath = path.join(rootDir, '.env');
+
+// Read GH_TOKEN from .env if present
+let ghToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '';
+if (!ghToken && fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const match = envContent.match(/^GH_TOKEN=(.*)$/m) || envContent.match(/^GITHUB_TOKEN=(.*)$/m);
+  if (match) {
+    ghToken = match[1].trim().replace(/^["']|["']$/g, '');
+  }
+}
 
 // 1. Determine target version
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
@@ -76,18 +87,59 @@ if (fs.existsSync(statusBarPath)) {
   console.log(`✓ Updated StatusBar.tsx`);
 }
 
-// 8. Build client to verify
-console.log('\n🔨 Verifying frontend build...');
+// 8. Build client
+console.log('\n🔨 Building and packaging Windows application...');
 execSync('npm --prefix client run build', { stdio: 'inherit', cwd: rootDir });
 
-// 9. Git commit & tag & push
+// 9. Build installer locally
+if (ghToken) {
+  console.log('\n📡 GH_TOKEN detected! Building and publishing directly to GitHub Releases...');
+  execSync('npx electron-builder --win --publish always', {
+    stdio: 'inherit',
+    cwd: rootDir,
+    env: { ...process.env, GH_TOKEN: ghToken, GITHUB_TOKEN: ghToken }
+  });
+  console.log(`\n🎉 Uploaded v${newVersion} installer & latest.yml directly to GitHub Releases!`);
+} else {
+  console.log('\n📦 Packaging Windows Setup EXE & latest.yml locally...');
+  execSync('npx electron-builder --win', { stdio: 'inherit', cwd: rootDir });
+  
+  // Make hyphenated copy
+  const distDir = path.join(rootDir, 'dist_installer');
+  const originalExe = path.join(distDir, `Video Pilot Pro Setup ${newVersion}.exe`);
+  const hyphenExe = path.join(distDir, `Video-Pilot-Pro-Setup-${newVersion}.exe`);
+  if (fs.existsSync(originalExe)) {
+    fs.copyFileSync(originalExe, hyphenExe);
+  }
+}
+
+// 10. Git commit & tag & push
 console.log('\n📦 Committing and pushing release tag to GitHub...');
 execSync('git add .', { stdio: 'inherit', cwd: rootDir });
-execSync(`git commit -m "Release v${newVersion}"`, { stdio: 'inherit', cwd: rootDir });
-execSync(`git tag v${newVersion}`, { stdio: 'inherit', cwd: rootDir });
-execSync('git push origin main', { stdio: 'inherit', cwd: rootDir });
-execSync(`git push origin v${newVersion}`, { stdio: 'inherit', cwd: rootDir });
+try {
+  execSync(`git commit -m "Release v${newVersion}"`, { stdio: 'inherit', cwd: rootDir });
+} catch (e) {}
 
-console.log(`\n🎉 SUCCESS: v${newVersion} pushed to GitHub!`);
-console.log(`☁️  GitHub Actions is now automatically building the installer in the cloud and attaching latest.yml!`);
-console.log(`📲 All installed user applications will detect v${newVersion} and auto-update automatically!\n`);
+try {
+  execSync(`git tag -a v${newVersion} -m "Release v${newVersion}"`, { stdio: 'inherit', cwd: rootDir });
+} catch (e) {}
+
+execSync('git push origin main', { stdio: 'inherit', cwd: rootDir });
+try {
+  execSync(`git push origin v${newVersion}`, { stdio: 'inherit', cwd: rootDir });
+} catch (e) {}
+
+console.log(`\n======================================================`);
+console.log(`🎉 SUCCESS: Release v${newVersion} is Ready!`);
+if (ghToken) {
+  console.log(`🚀 Automated Release complete! All users will receive the update automatically.`);
+} else {
+  console.log(`📦 Files generated in: dist_installer/`);
+  console.log(`   - Video-Pilot-Pro-Setup-${newVersion}.exe`);
+  console.log(`   - latest.yml`);
+  console.log(`👉 Attach them to: https://github.com/PhelobaterFady/VideoPilotPRO/releases/edit/v${newVersion}`);
+  console.log(`💡 TIP: To make uploads 100% automatic from your PC, create a free token at:`);
+  console.log(`   https://github.com/settings/tokens/new (select 'repo' scope)`);
+  console.log(`   and save it in .env as GH_TOKEN=your_token`);
+}
+console.log(`======================================================\n`);
