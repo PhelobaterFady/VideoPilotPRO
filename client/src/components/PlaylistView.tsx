@@ -83,29 +83,35 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
   };
 
   return (
-    <div className="w-full my-4 glass-card rounded-3xl p-5 md:p-6 border border-zinc-800 shadow-2xl space-y-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-800 text-emerald-400 flex items-center justify-center border border-zinc-700 flex-shrink-0">
+    <div className="w-full my-4 cockpit-card rounded-2xl p-5 md:p-6 border border-[rgba(255,255,255,0.08)] shadow-2xl space-y-5">
+      {/* Cockpit Channel Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-[rgba(255,255,255,0.06)]">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-[rgba(0,229,255,0.08)] text-[#00e5ff] flex items-center justify-center border border-[rgba(0,229,255,0.25)] flex-shrink-0 shadow-[0_0_15px_rgba(0,229,255,0.15)]">
             <ListVideo className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white line-clamp-1">{playlist.title}</h2>
+              <h2 className="text-lg font-bold text-white font-display tracking-tight line-clamp-1">{playlist.title}</h2>
               <PlatformBadge platform={playlist.platform} />
             </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              Channel / Playlist with <span className="font-bold text-emerald-400">{items.length}</span> items
+            <p className="text-xs text-[rgba(240,244,248,0.5)] mt-1 flex items-center gap-2">
+              <span>Channel / Batch Roster</span>
+              <span className="w-1 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
+              <span className="font-mono text-[#00e5ff] font-semibold">{items.length} items detected</span>
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 bg-zinc-900/80 p-2 rounded-2xl border border-zinc-800 w-full md:w-auto">
-          <div className="flex bg-zinc-950 p-1 rounded-xl">
+        <div className="flex flex-wrap items-center gap-3 bg-[rgba(14,19,31,0.85)] p-2 rounded-xl border border-[rgba(255,255,255,0.08)] w-full md:w-auto">
+          {/* Mode Switcher */}
+          <div className="flex bg-[rgba(7,9,14,0.8)] p-1 rounded-lg border border-[rgba(255,255,255,0.05)]">
             <button
               onClick={() => setDownloadMode('video')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                downloadMode === 'video' ? 'bg-zinc-100 text-black font-bold' : 'text-zinc-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                downloadMode === 'video'
+                  ? 'bg-[#00e5ff] text-[#07090e] font-bold shadow-[0_0_12px_rgba(0,229,255,0.3)]'
+                  : 'text-[rgba(240,244,248,0.6)] hover:text-white'
               }`}
             >
               <Video className="w-3.5 h-3.5" />
@@ -113,8 +119,10 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
             </button>
             <button
               onClick={() => setDownloadMode('audio')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                downloadMode === 'audio' ? 'bg-zinc-100 text-black font-bold' : 'text-zinc-400 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                downloadMode === 'audio'
+                  ? 'bg-[#00e5ff] text-[#07090e] font-bold shadow-[0_0_12px_rgba(0,229,255,0.3)]'
+                  : 'text-[rgba(240,244,248,0.6)] hover:text-white'
               }`}
             >
               <Music className="w-3.5 h-3.5" />
@@ -127,48 +135,48 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
             <select
               value={qualityFormat}
               onChange={(e) => setQualityFormat(e.target.value)}
-              className="bg-zinc-950 text-emerald-400 font-bold text-xs px-3 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-emerald-500 cursor-pointer"
+              className="bg-[rgba(7,9,14,0.8)] text-[#00e5ff] font-mono font-medium text-xs px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.1)] focus:outline-none focus:border-[#00e5ff] cursor-pointer"
             >
-              <option value="bestvideo+bestaudio/best">👑 Highest (4K / 1080p Max)</option>
-              <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]/best">💎 Full HD 1080p</option>
-              <option value="bestvideo[height<=720]+bestaudio/best[height<=720]/best">⚡ High Definition 720p</option>
-              <option value="bestvideo[height<=480]+bestaudio/best[height<=480]/best">📦 Standard 480p</option>
+              <option value="bestvideo+bestaudio/best">Master: 4K / 1080p UHD</option>
+              <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]/best">Studio: Full HD 1080p</option>
+              <option value="bestvideo[height<=720]+bestaudio/best[height<=720]/best">Stream: HD 720p</option>
+              <option value="bestvideo[height<=480]+bestaudio/best[height<=480]/best">Compact: SD 480p</option>
             </select>
           )}
 
           <button
             onClick={handleStartBatchDownload}
             disabled={selectedItems.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-[#00e5ff] to-[#00b0ff] text-[#07090e] shadow-[0_0_20px_rgba(0,229,255,0.25)] hover:shadow-[0_0_25px_rgba(0,229,255,0.4)] disabled:opacity-40 transition-all cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Download Selected ({selectedItems.length})</span>
+            <span>Download ({selectedItems.length})</span>
           </button>
         </div>
       </div>
 
-      {/* Smart Channel / Playlist Filter Toolbar */}
-      <div className="bg-black/50 p-3.5 rounded-2xl border border-zinc-800 space-y-3">
+      {/* Smart Channel / Playlist Filter Bay */}
+      <div className="bg-[rgba(10,14,23,0.8)] p-3.5 rounded-xl border border-[rgba(255,255,255,0.06)] space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Content Type Filter Chips */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-xs font-medium text-[rgba(240,244,248,0.5)] flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-[#00e5ff]" />
               <span>Filter:</span>
             </span>
-            <div className="flex items-center bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+            <div className="flex items-center bg-[rgba(7,9,14,0.6)] p-0.5 rounded-lg border border-[rgba(255,255,255,0.06)]">
               <button
                 onClick={() => setTypeFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  typeFilter === 'all' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-zinc-200'
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                  typeFilter === 'all' ? 'bg-[#00e5ff] text-[#07090e] font-bold' : 'text-[rgba(240,244,248,0.6)] hover:text-white'
                 }`}
               >
                 All ({items.length})
               </button>
               <button
                 onClick={() => setTypeFilter('shorts')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                  typeFilter === 'shorts' ? 'bg-rose-500 text-white' : 'text-zinc-400 hover:text-rose-400'
+                className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all ${
+                  typeFilter === 'shorts' ? 'bg-[#ff5252] text-white font-bold' : 'text-[rgba(240,244,248,0.6)] hover:text-[#ff5252]'
                 }`}
               >
                 <Flame className="w-3 h-3" />
@@ -176,8 +184,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
               </button>
               <button
                 onClick={() => setTypeFilter('long')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  typeFilter === 'long' ? 'bg-emerald-500 text-black' : 'text-zinc-400 hover:text-emerald-400'
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                  typeFilter === 'long' ? 'bg-[#00e676] text-[#07090e] font-bold' : 'text-[rgba(240,244,248,0.6)] hover:text-[#00e676]'
                 }`}
               >
                 Videos ({longCount})
@@ -187,16 +195,16 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
 
           {/* Duration Sorting */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-zinc-400 flex items-center gap-1">
-              <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-xs font-medium text-[rgba(240,244,248,0.5)] flex items-center gap-1">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[rgba(240,244,248,0.5)]" />
               <span>Sort:</span>
             </span>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
-              className="bg-zinc-900 text-zinc-200 text-xs rounded-xl px-3 py-1.5 border border-zinc-800 focus:outline-none focus:border-cyan-500"
+              className="bg-[rgba(7,9,14,0.8)] text-zinc-300 text-xs rounded-lg px-3 py-1.5 border border-[rgba(255,255,255,0.08)] focus:outline-none focus:border-[#00e5ff]"
             >
-              <option value="default">Default Order</option>
+              <option value="default">Roster Order</option>
               <option value="shortest">Shortest First ⏱️</option>
               <option value="longest">Longest First ⌛</option>
             </select>
@@ -204,14 +212,14 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
         </div>
 
         {/* Quick Selection Chips & Search */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-1 border-t border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t border-[rgba(255,255,255,0.05)]">
           <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
             <button
               onClick={toggleSelectAll}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.09)] text-zinc-200 border border-[rgba(255,255,255,0.08)] transition-colors flex items-center gap-1.5"
             >
               {selectedItems.length === filteredItems.length && filteredItems.length > 0 ? (
-                <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                <CheckSquare className="w-3.5 h-3.5 text-[#00e5ff]" />
               ) : (
                 <Square className="w-3.5 h-3.5 text-zinc-500" />
               )}
@@ -219,77 +227,78 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBatchDow
             </button>
             <button
               onClick={() => selectTopN(5)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+              className="px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.06)] transition-colors"
             >
               Top 5
             </button>
             <button
               onClick={() => selectTopN(10)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+              className="px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.06)] transition-colors"
             >
               Top 10
             </button>
             <button
               onClick={() => selectTopN(25)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+              className="px-2.5 py-1 rounded-md text-xs font-mono text-zinc-300 bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.06)] transition-colors"
             >
               Top 25
             </button>
             {selectedItems.length > 0 && (
               <button
                 onClick={() => setSelectedItems([])}
-                className="px-2 py-1 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="px-2 py-1 rounded-md text-xs text-[rgba(240,244,248,0.4)] hover:text-white transition-colors"
               >
                 Clear
               </button>
             )}
           </div>
 
-          <div className="relative w-full sm:w-60">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[rgba(240,244,248,0.4)]" />
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search in tracks..."
-              className="w-full bg-zinc-900 text-zinc-200 text-xs rounded-xl pl-8 pr-3 py-1.5 border border-zinc-800 focus:outline-none focus:border-cyan-500"
+              placeholder="Search playlist tracks..."
+              className="w-full bg-[rgba(7,9,14,0.8)] text-zinc-200 text-xs rounded-lg pl-8 pr-3 py-1.5 border border-[rgba(255,255,255,0.08)] focus:outline-none focus:border-[#00e5ff]"
             />
           </div>
         </div>
       </div>
 
-      <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+      {/* Roster Items List */}
+      <div className="max-h-96 overflow-y-auto space-y-2 pr-1 custom-aerospace-scrollbar">
         {filteredItems.map((item, idx) => {
           const isSelected = selectedItems.includes(item.id);
           return (
             <div
               key={item.id || idx}
               onClick={() => toggleSelectItem(item.id)}
-              className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all border ${
+              className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all border ${
                 isSelected
-                  ? 'bg-zinc-900 border-zinc-700 text-zinc-100 shadow-md'
-                  : 'bg-zinc-950/60 hover:bg-zinc-900/60 border-zinc-800/60 text-zinc-400'
+                  ? 'bg-[rgba(0,229,255,0.06)] border-[rgba(0,229,255,0.3)] text-white shadow-[0_0_12px_rgba(0,229,255,0.08)]'
+                  : 'bg-[rgba(14,19,31,0.5)] hover:bg-[rgba(14,19,31,0.8)] border-[rgba(255,255,255,0.05)] text-zinc-400'
               }`}
             >
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="text-emerald-400">
-                  {isSelected ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4 text-zinc-600" />}
+                <div className="text-[#00e5ff]">
+                  {isSelected ? <CheckSquare className="w-4 h-4 text-[#00e5ff]" /> : <Square className="w-4 h-4 text-zinc-600" />}
                 </div>
-                <span className="text-xs font-bold text-zinc-500 w-6 text-center">{idx + 1}</span>
+                <span className="text-xs font-mono text-[rgba(240,244,248,0.35)] w-6 text-center">{idx + 1}</span>
                 <img
                   src={item.thumbnail || playlist.thumbnail}
                   alt={item.title}
-                  className="w-14 h-10 object-cover rounded-lg flex-shrink-0 bg-zinc-800"
+                  className="w-14 h-10 object-cover rounded-md flex-shrink-0 bg-zinc-900 border border-[rgba(255,255,255,0.08)]"
                 />
                 <div className="truncate">
-                  <h4 className="text-xs font-semibold text-zinc-200 truncate">{item.title}</h4>
-                  <p className="text-[11px] text-zinc-500">{item.uploader}</p>
+                  <h4 className="text-xs font-medium text-zinc-200 truncate">{item.title}</h4>
+                  <p className="text-[11px] text-[rgba(240,244,248,0.45)] truncate">{item.uploader}</p>
                 </div>
               </div>
 
               {item.duration > 0 && (
-                <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-mono flex-shrink-0 ml-2">
-                  <Clock className="w-3 h-3 text-zinc-500" />
+                <div className="flex items-center gap-1 text-[11px] text-[rgba(240,244,248,0.5)] font-mono flex-shrink-0 ml-3 bg-[rgba(0,0,0,0.3)] px-2 py-0.5 rounded border border-[rgba(255,255,255,0.04)]">
+                  <Clock className="w-3 h-3 text-[#ffb020]" />
                   <span>{formatDuration(item.duration)}</span>
                 </div>
               )}

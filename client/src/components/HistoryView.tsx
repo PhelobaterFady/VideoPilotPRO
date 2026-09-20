@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { HistoryItem } from '../types';
-import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Smartphone } from 'lucide-react';
+import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Smartphone, Database, Film, Music } from 'lucide-react';
 import { PlatformBadge } from './PlatformBadge';
 
 interface HistoryViewProps {
@@ -38,22 +38,22 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   });
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800">
+    <div className="w-full space-y-5 tab-content-enter">
+      {/* Header Deck */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cockpit-card p-5 rounded-3xl border border-white/[0.08]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-800 text-emerald-400 flex items-center justify-center border border-zinc-700">
-            <History className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center border border-[#00E5FF]/20 shadow-md shadow-cyan-500/10">
+            <Database className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-white">Downloads History</h2>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                {history.length} items
+              <h2 className="text-lg font-display font-bold text-white tracking-tight">Vault Archive</h2>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 font-mono font-bold">
+                {history.length} logged
               </span>
             </div>
-            <p className="text-xs text-zinc-400">
-              Recorded: <span className="text-zinc-200 font-semibold">{videoCount}</span> videos, <span className="text-zinc-200 font-semibold">{audioCount}</span> audio files
+            <p className="text-xs text-[#8290A5]">
+              Local storage: <span className="text-white font-semibold">{videoCount}</span> videos, <span className="text-white font-semibold">{audioCount}</span> audio tracks
             </p>
           </div>
         </div>
@@ -61,17 +61,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         {history.length > 0 && (
           <button
             onClick={onClearHistory}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Clear All History</span>
+            <span>Purge Archive</span>
           </button>
         )}
       </div>
 
       {/* Filter Tabs & Search Bar */}
       {history.length > 0 && (
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-zinc-900/40 p-2.5 rounded-2xl border border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-[#0A0D15]/80 p-3 rounded-2xl border border-white/[0.07]">
           <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
             {[
               { id: 'all', label: `All (${history.length})` },
@@ -85,8 +85,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 onClick={() => setCategoryFilter(f.id as any)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                   categoryFilter === f.id
-                    ? 'bg-zinc-100 text-zinc-950 font-bold shadow'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    ? 'bg-[#00E5FF] text-black font-bold shadow-md shadow-cyan-500/20 font-display'
+                    : 'bg-[#0E131F] text-[#8290A5] hover:text-white hover:bg-white/[0.06] border border-white/[0.05]'
                 }`}
               >
                 {f.label}
@@ -95,13 +95,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#8290A5]" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search history..."
-              className="w-full bg-zinc-900 text-zinc-100 text-xs rounded-xl pl-8 pr-3 py-2 border border-zinc-800 focus:outline-none focus:border-emerald-500"
+              placeholder="Search archive..."
+              className="w-full bg-[#07090E] text-white text-xs rounded-xl pl-8 pr-3 py-2 border border-white/[0.08] focus:outline-none focus:border-[#00E5FF] font-medium placeholder-[#607085]"
             />
           </div>
         </div>
@@ -109,100 +109,103 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
       {/* History Grid */}
       {filteredHistory.length === 0 ? (
-        <div className="text-center py-16 bg-zinc-900/40 rounded-3xl border border-zinc-800/60 text-zinc-400 space-y-2">
-          <Download className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
-          <p className="text-sm font-semibold text-zinc-300">No download history found</p>
-          <p className="text-xs text-zinc-500">Downloaded videos and audio tracks will appear here.</p>
+        <div className="text-center py-20 cockpit-card rounded-3xl border border-white/[0.06] text-[#8290A5] space-y-3">
+          <History className="w-9 h-9 mx-auto text-[#607085] mb-2" />
+          <p className="text-sm font-display font-semibold text-zinc-200">No media records found</p>
+          <p className="text-xs text-[#8290A5]">Completed downloads and extracts will be archived here for 1-click access.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filteredHistory.map((item) => (
             <div
-                key={item.id}
-                className="bg-zinc-900/60 p-3.5 rounded-2xl border border-zinc-800 flex items-center justify-between gap-3 hover:border-zinc-700 transition duration-200"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="w-14 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800 flex items-center justify-center">
-                    {item.thumbnail ? (
-                      <img
-                        src={item.thumbnail}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Download className="w-5 h-5 text-zinc-400" />
-                    )}
-                  </div>
-                  <div className="truncate">
-                    <h4 className="text-xs font-bold text-zinc-200 truncate" title={item.title}>
-                      {item.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <PlatformBadge platform={item.platform} showText={false} />
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
-                        {item.format}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
-                        <Calendar className="w-3 h-3 text-zinc-500" />
-                        {new Date(item.downloadDate).toLocaleDateString('en-US')}
-                      </span>
-                    </div>
-                  </div>
+              key={item.id}
+              className="cockpit-card-interactive p-4 rounded-2xl border border-white/[0.07] flex items-center justify-between gap-3 shadow-md"
+            >
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-14 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[#07090E] border border-white/[0.08] flex items-center justify-center">
+                  {item.thumbnail ? (
+                    <img
+                      src={item.thumbnail}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : item.type === 'audio' ? (
+                    <Music className="w-5 h-5 text-purple-400" />
+                  ) : (
+                    <Film className="w-5 h-5 text-[#00E5FF]" />
+                  )}
                 </div>
-
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {item.filePath && onSendToPhone && (
-                    <button
-                      onClick={() => onSendToPhone(item.filePath!, item.title)}
-                      className="p-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 transition-all"
-                      title="Send to Phone via Wi-Fi QR"
-                    >
-                      <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                    </button>
-                  )}
-
-                  {item.filePath && onOpenFile && (
-                    <button
-                      onClick={() => onOpenFile(item.filePath!)}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-all"
-                      title="Open File"
-                    >
-                      <Download className="w-3.5 h-3.5 text-zinc-300" />
-                    </button>
-                  )}
-
-                  {item.filePath && onShowInFolder && (
-                    <button
-                      onClick={() => onShowInFolder(item.filePath!)}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-all"
-                      title="Show in Folder"
-                    >
-                      <Folder className="w-3.5 h-3.5 text-sky-400" />
-                    </button>
-                  )}
-
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all"
-                    title="Open Source Link"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-
-                  {onDeleteItem && (
-                    <button
-                      onClick={() => onDeleteItem(item.id)}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-all"
-                      title="Remove from history"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                <div className="truncate">
+                  <h4 className="text-xs font-bold text-white truncate font-display" title={item.title}>
+                    {item.title}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <PlatformBadge platform={item.platform} showText={false} />
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#0E131F] text-zinc-300 font-mono border border-white/[0.06]">
+                      {item.format}
+                    </span>
+                    <span className="text-[10px] text-[#8290A5] flex items-center gap-1 font-mono">
+                      <Calendar className="w-3 h-3 text-[#607085]" />
+                      {new Date(item.downloadDate).toLocaleDateString('en-US')}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {item.filePath && onSendToPhone && (
+                  <button
+                    onClick={() => onSendToPhone(item.filePath!, item.title)}
+                    className="p-2 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 text-[#00E5FF] border border-[#00E5FF]/30 transition-all"
+                    title="Send to Phone via Wi-Fi QR"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {item.filePath && onOpenFile && (
+                  <button
+                    onClick={() => onOpenFile(item.filePath!)}
+                    className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 border border-white/[0.08] transition-all"
+                    title="Open File"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {item.filePath && onShowInFolder && (
+                  <button
+                    onClick={() => onShowInFolder(item.filePath!)}
+                    className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#00E5FF] border border-white/[0.08] transition-all"
+                    title="Show in Folder"
+                  >
+                    <Folder className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#8290A5] hover:text-white border border-white/[0.08] transition-all"
+                  title="Source link"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                {onDeleteItem && (
+                  <button
+                    onClick={() => onDeleteItem(item.id)}
+                    className="p-2 rounded-xl bg-white/[0.05] hover:bg-red-500/20 text-[#8290A5] hover:text-red-400 border border-white/[0.08] transition-all"
+                    title="Remove from archive"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

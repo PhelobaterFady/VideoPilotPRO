@@ -1,152 +1,137 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg-void: #07090e;
+    --bg-surface: #0e131f;
+    --bg-elevated: #161d2e;
+    --bg-cartridge: #111726;
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-elevated: rgba(255, 255, 255, 0.12);
+    --signal-cyan: #00e5ff;
+    --signal-cyan-glow: rgba(0, 229, 255, 0.25);
+    --telemetry-amber: #ffb020;
+    --telemetry-amber-glow: rgba(255, 176, 32, 0.25);
+    --engine-emerald: #00e676;
+    --engine-emerald-glow: rgba(0, 230, 118, 0.25);
+    --text-readout: #f0f4fc;
+    --text-muted: #8290a5;
+  }
+
   body {
-    background-color: #050505;
-    color: #f4f4f5;
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #07090e;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 229, 255, 0.04), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(168, 85, 247, 0.03), transparent);
+    color: #f0f4fc;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  code, kbd, samp, pre, .font-mono, .telemetry-val {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Theme definitions */
-.theme-emerald {
-  --primary-accent: #10b981;
-  --primary-hover: #34d399;
-  --primary-glow: rgba(16, 185, 129, 0.3);
-  --primary-light: rgba(16, 185, 129, 0.15);
+/* Aerospace Cockpit Module Card */
+.cockpit-card {
+  background: rgba(14, 19, 31, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.theme-violet {
-  --primary-accent: #a855f7;
-  --primary-hover: #c084fc;
-  --primary-glow: rgba(168, 85, 247, 0.3);
-  --primary-light: rgba(168, 85, 247, 0.15);
+.cockpit-card-interactive {
+  background: rgba(14, 19, 31, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.theme-cyan {
-  --primary-accent: #06b6d4;
-  --primary-hover: #38bdf8;
-  --primary-glow: rgba(6, 182, 212, 0.3);
-  --primary-light: rgba(6, 182, 212, 0.15);
+.cockpit-card-interactive:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.7);
 }
 
-.theme-crimson {
-  --primary-accent: #f43f5e;
-  --primary-hover: #fb7185;
-  --primary-glow: rgba(244, 63, 94, 0.3);
-  --primary-light: rgba(244, 63, 94, 0.15);
-}
-
-/* Universal Theme Overrides */
-.theme-violet .text-emerald-400,
-.theme-violet .text-emerald-300 {
-  color: #a855f7 !important;
-}
-
-.theme-violet .bg-emerald-500 {
-  background-color: #a855f7 !important;
-}
-
-.theme-violet .bg-emerald-500\/20,
-.theme-violet .bg-emerald-500\/10 {
-  background-color: rgba(168, 85, 247, 0.18) !important;
-}
-
-.theme-violet .border-emerald-500,
-.theme-violet .border-emerald-500\/30,
-.theme-violet .border-emerald-500\/20 {
-  border-color: rgba(168, 85, 247, 0.4) !important;
-}
-
-.theme-cyan .text-emerald-400,
-.theme-cyan .text-emerald-300 {
-  color: #06b6d4 !important;
-}
-
-.theme-cyan .bg-emerald-500 {
-  background-color: #06b6d4 !important;
-}
-
-.theme-cyan .bg-emerald-500\/20,
-.theme-cyan .bg-emerald-500\/10 {
-  background-color: rgba(6, 182, 212, 0.18) !important;
-}
-
-.theme-cyan .border-emerald-500,
-.theme-cyan .border-emerald-500\/30,
-.theme-cyan .border-emerald-500\/20 {
-  border-color: rgba(6, 182, 212, 0.4) !important;
-}
-
-.theme-crimson .text-emerald-400,
-.theme-crimson .text-emerald-300 {
-  color: #f43f5e !important;
-}
-
-.theme-crimson .bg-emerald-500 {
-  background-color: #f43f5e !important;
-}
-
-.theme-crimson .bg-emerald-500\/20,
-.theme-crimson .bg-emerald-500\/10 {
-  background-color: rgba(244, 63, 94, 0.18) !important;
-}
-
-.theme-crimson .border-emerald-500,
-.theme-crimson .border-emerald-500\/30,
-.theme-crimson .border-emerald-500\/20 {
-  border-color: rgba(244, 63, 94, 0.4) !important;
-}
-
-/* OLED Glassmorphism Classes */
-.glass-card {
-  background: rgba(18, 18, 20, 0.75);
+/* Flight Input Bay */
+.hud-input-bay {
+  background: rgba(17, 23, 38, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
-}
-
-.glass-input {
-  background: rgba(24, 24, 27, 0.8);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.glass-input:focus-within {
-  border-color: var(--primary-accent, #10b981);
-  box-shadow: 0 0 20px var(--primary-glow, rgba(16, 185, 129, 0.25));
+.hud-input-bay:focus-within {
+  border-color: #00e5ff;
+  box-shadow: 0 0 25px rgba(0, 229, 255, 0.2), inset 0 1px 0 rgba(0, 229, 255, 0.1);
 }
 
-/* Scrollbar customization */
+/* Studio Format Quality Cartridge */
+.flight-cartridge {
+  background: rgba(17, 23, 38, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.flight-cartridge:hover {
+  background: rgba(22, 29, 46, 0.9);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.flight-cartridge-active {
+  background: linear-gradient(145deg, rgba(0, 229, 255, 0.12), rgba(14, 19, 31, 0.95)) !important;
+  border-color: #00e5ff !important;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.15), inset 0 1px 0 rgba(0, 229, 255, 0.3) !important;
+}
+
+/* Telemetry Badge */
+.telemetry-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: -0.02em;
+}
+
+/* Aerospace Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: #07090e;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #1c2438;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #283450;
 }
 
-/* Tab Transition Animations */
+/* Tab Transitions */
 .tab-content-enter {
-  animation: fadeInSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: flightEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes fadeInSlide {
+@keyframes flightEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -157,7 +142,7 @@
 /* Live Wave Pulse Animation */
 @keyframes speedPulse {
   0%, 100% {
-    opacity: 0.4;
+    opacity: 0.35;
     transform: scaleY(0.4);
   }
   50% {
@@ -175,11 +160,11 @@
   animation: speedPulse 1s ease-in-out infinite;
 }
 
-/* Toast Float Animation */
+/* Toast Notification Animation */
 @keyframes toastSlideIn {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.95);
+    transform: translateY(14px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -191,12 +176,22 @@
   animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Subtle card hover elevation */
-.interactive-card {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+/* Subtle Radar Pulse */
+@keyframes radarPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(0, 229, 255, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+  }
 }
 
-.interactive-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.6);
+.radar-signal {
+  animation: radarPulse 2.5s infinite;
 }

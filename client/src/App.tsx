@@ -861,19 +861,19 @@ export function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`h-screen w-screen bg-[#050505] text-zinc-100 flex flex-col overflow-hidden select-none theme-${activeTheme} relative`}
+      className={`h-screen w-screen bg-[#07090e] text-[rgba(240,244,248,0.92)] flex flex-col overflow-hidden select-none theme-${activeTheme} relative font-sans`}
     >
       <TitleBar />
 
-      {/* Drag & Drop Neon Glowing Overlay */}
+      {/* Drag & Drop Aerospace Master Deck Overlay */}
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-xl border-4 border-dashed border-emerald-500/80 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-200">
-          <div className="w-20 h-20 rounded-3xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-2xl shadow-emerald-500/20 animate-bounce">
+        <div className="absolute inset-0 z-50 bg-[#07090e]/90 backdrop-blur-2xl border-4 border-dashed border-[#00e5ff]/80 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-200">
+          <div className="w-20 h-20 rounded-2xl bg-[rgba(0,229,255,0.15)] text-[#00e5ff] flex items-center justify-center border border-[rgba(0,229,255,0.4)] shadow-[0_0_40px_rgba(0,229,255,0.35)] animate-bounce">
             <UploadCloud className="w-10 h-10" />
           </div>
           <div className="text-center space-y-1">
-            <h3 className="text-2xl font-black text-white">Drop Link to Download Instantly 🚀</h3>
-            <p className="text-sm text-zinc-400">Release the media URL to analyze and download immediately</p>
+            <h3 className="text-2xl font-bold font-display text-white tracking-tight">Drop Media Stream to Ingest 🚀</h3>
+            <p className="text-xs text-[#00e5ff] font-mono">Release the media URL to trigger instant extraction & analysis</p>
           </div>
         </div>
       )}
@@ -887,39 +887,39 @@ export function App() {
           onToggleCollapse={toggleSidebar}
         />
 
-        <main className="flex-1 overflow-y-auto px-6 md:px-10 py-6 bg-[#09090b]">
+        <main className="flex-1 overflow-y-auto px-6 md:px-10 py-6 bg-[#07090e] custom-aerospace-scrollbar">
           {/* Update Banner */}
           {updateInfo?.available && (
-            <div className="w-full mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-600/20 via-emerald-500/10 to-teal-500/20 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 animate-pulse">
+            <div className="w-full mb-6 p-4 rounded-xl bg-gradient-to-r from-[rgba(0,229,255,0.12)] via-[rgba(0,230,118,0.08)] to-transparent border border-[rgba(0,229,255,0.3)] flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,229,255,0.08)]">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(0,229,255,0.15)] text-[#00e5ff] flex items-center justify-center border border-[rgba(0,229,255,0.3)] flex-shrink-0 animate-pulse">
                   <RefreshCw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-emerald-300">New Update Available! ({updateInfo.version || 'v1.2.0'})</h4>
-                  <p className="text-xs text-emerald-400/80">A new version of Video Pilot Pro is ready. Click below to upgrade automatically.</p>
+                  <h4 className="text-sm font-bold font-display text-white">New Core Firmware Available ({updateInfo.version || 'v1.2.0'})</h4>
+                  <p className="text-xs text-[rgba(240,244,248,0.6)] font-mono">A new optimized extraction core is ready. Update now to ensure full protocol compatibility.</p>
                 </div>
               </div>
               <button
                 onClick={() => handleTriggerUpdate(updateInfo.url)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-[#00e5ff] to-[#00b0ff] text-[#07090e] transition-all shadow-[0_0_15px_rgba(0,229,255,0.25)] flex-shrink-0 cursor-pointer"
               >
                 <DownloadCloud className="w-4 h-4" />
-                <span>{updateInfo.url === 'ready' ? 'Restart & Install' : 'Update Now'}</span>
+                <span>{updateInfo.url === 'ready' ? 'Restart & Deploy' : 'Deploy Update'}</span>
               </button>
             </div>
           )}
 
-          {/* Floating Clipboard Quick-Action Banner */}
+          {/* Floating Clipboard Quick-Action Bay */}
           {clipboardDetectedUrl && (
-            <div className="w-full mb-4 p-3.5 rounded-2xl bg-zinc-900/90 border border-emerald-500/40 flex items-center justify-between gap-4 shadow-xl backdrop-blur-md">
+            <div className="w-full mb-5 p-3 rounded-xl bg-[rgba(14,19,31,0.85)] border border-[rgba(0,229,255,0.35)] flex items-center justify-between gap-4 shadow-[0_0_20px_rgba(0,229,255,0.1)] backdrop-blur-xl">
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-[rgba(0,229,255,0.12)] text-[#00e5ff] flex items-center justify-center border border-[rgba(0,229,255,0.25)] flex-shrink-0">
                   <ClipboardCopy className="w-4 h-4" />
                 </div>
-                <div className="truncate">
-                  <span className="text-xs font-semibold text-emerald-400">Media link detected in clipboard: </span>
-                  <span className="text-xs text-zinc-300 font-mono truncate">{clipboardDetectedUrl}</span>
+                <div className="truncate font-mono">
+                  <span className="text-[11px] font-semibold text-[#00e5ff] uppercase tracking-wider mr-2">Link Detected:</span>
+                  <span className="text-xs text-zinc-300 truncate">{clipboardDetectedUrl}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -928,16 +928,16 @@ export function App() {
                     handleAnalyzeUrl(clipboardDetectedUrl);
                     setClipboardDetectedUrl(null);
                   }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-[#00e5ff] to-[#00b0ff] text-[#07090e] transition-all shadow-[0_0_12px_rgba(0,229,255,0.25)] cursor-pointer"
                 >
-                  Paste & Analyze
+                  Inspect & Ingest
                 </button>
                 <button
                   onClick={() => {
                     setDismissedClipboardUrl(clipboardDetectedUrl);
                     setClipboardDetectedUrl(null);
                   }}
-                  className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all"
+                  className="p-1.5 rounded-lg bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-zinc-400 hover:text-white transition-all cursor-pointer"
                   title="Dismiss"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -947,22 +947,22 @@ export function App() {
           )}
 
           {(!downloadPath || downloadPath.trim() === '') && (
-            <div className="w-full mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+            <div className="w-full mb-6 p-4 rounded-xl bg-[rgba(255,176,32,0.08)] border border-[rgba(255,176,32,0.3)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[rgba(255,176,32,0.15)] text-[#ffb020] flex items-center justify-center border border-[rgba(255,176,32,0.3)] flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-amber-300">Download Save Location Not Configured</h4>
-                  <p className="text-xs text-amber-400/80">Please specify where to save videos on your PC before downloading.</p>
+                  <h4 className="text-sm font-bold font-display text-[#ffb020]">Storage Vault Not Calibrated</h4>
+                  <p className="text-xs text-[rgba(240,244,248,0.6)] font-mono">Select a destination folder on your workstation before starting downloads.</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveTab('settings')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all shadow flex-shrink-0"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-[#ffb020] hover:bg-[#ffc107] text-[#07090e] transition-all shadow-[0_0_15px_rgba(255,176,32,0.25)] flex-shrink-0 cursor-pointer"
               >
                 <Folder className="w-4 h-4" />
-                <span>Go to Settings & Storage</span>
+                <span>Configure Storage Vault</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -971,22 +971,22 @@ export function App() {
           {/* Tab Content with Smooth Transitions */}
           {activeTab === 'downloader' && (
             <div className="w-full space-y-6 tab-content-enter">
-              <div className="flex items-center justify-between bg-zinc-900/60 p-4 rounded-2xl border border-zinc-800">
+              <div className="flex items-center justify-between cockpit-card p-4 rounded-xl border border-[rgba(255,255,255,0.06)]">
                 <div>
-                  <h2 className="text-lg font-bold text-white">Direct Downloader</h2>
-                  <p className="text-xs text-zinc-400">Paste media URL from YouTube, TikTok, Instagram, Facebook, or X</p>
+                  <h2 className="text-lg font-bold font-display text-white tracking-tight">Direct Stream Ingestion Bay</h2>
+                  <p className="text-xs text-[rgba(240,244,248,0.5)]">Feed media URLs from YouTube, TikTok, Instagram, Facebook, Vimeo, or X</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={checkVersionRealtime}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-zinc-700 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-mono font-medium bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-[#00e5ff] border border-[rgba(255,255,255,0.08)] transition-colors cursor-pointer"
                   >
-                    <RefreshCw className="w-3 h-3 text-emerald-400" />
-                    <span>Check Updates</span>
+                    <RefreshCw className="w-3 h-3 text-[#00e5ff]" />
+                    <span>Ping Core</span>
                   </button>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-800 text-emerald-400 border border-zinc-700">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Engine v{CURRENT_VERSION}</span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-mono font-medium bg-[rgba(0,230,118,0.08)] text-[#00e676] border border-[rgba(0,230,118,0.2)]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00e676]" />
+                    <span>CORE v{CURRENT_VERSION}</span>
                   </div>
                 </div>
               </div>
@@ -994,14 +994,14 @@ export function App() {
               <UrlInput onAnalyze={handleAnalyzeUrl} isLoading={isLoading} />
 
               {errorMessage && (
-                <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium text-center shadow flex items-center justify-between gap-4">
+                <div className="p-3.5 rounded-xl bg-[rgba(255,82,82,0.1)] border border-[rgba(255,82,82,0.3)] text-[#ff5252] text-xs font-mono flex items-center justify-between gap-4">
                   <span>{errorMessage}</span>
                   {(!downloadPath || downloadPath.trim() === '') && (
                     <button
                       onClick={() => setActiveTab('settings')}
-                      className="px-3 py-1.5 rounded-lg bg-red-500 text-white font-bold text-xs"
+                      className="px-3 py-1 rounded-md bg-[#ff5252] text-[#07090e] font-bold text-xs cursor-pointer"
                     >
-                      Set Storage Path
+                      Calibrate Vault
                     </button>
                   )}
                 </div>
