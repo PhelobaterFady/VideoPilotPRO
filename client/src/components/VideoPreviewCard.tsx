@@ -18,7 +18,7 @@ interface VideoPreviewCardProps {
   }) => void;
   onOpenTranscript?: (media: MediaInfo) => void;
   onSavePoster?: (thumbnailUrl: string, title: string) => void;
-  onSnapFrame?: (timestamp: string, title: string) => void;
+  onSnapFrame?: (timestamp: string, title?: string) => void;
 }
 
 export const VideoPreviewCard: React.FC<VideoPreviewCardProps> = ({

@@ -341,7 +341,7 @@ export function App() {
   };
 
   // Lossless Photographic Frame Grabber
-  const handleSnapFrame = async (timestamp: string = '00:00:05', title: string) => {
+  const handleSnapFrame = async (timestamp: string = '00:00:05', title?: string) => {
     if (!downloadPath || downloadPath.trim() === '') {
       addToast('error', 'Please configure your download folder in Settings & Storage first!', 'Save Location Missing');
       return;
