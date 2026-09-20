@@ -87,10 +87,10 @@ const verifyAppSecret = (req, res, next) => {
 // Application Version & Update Endpoint (Hybrid Update Support)
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: process.env.LATEST_VERSION || '1.2.0',
-    currentVersion: '1.2.0',
+    latestVersion: process.env.LATEST_VERSION || '1.3.0',
+    currentVersion: '1.3.0',
     downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
-    releaseNotes: 'Added full YouTube Playlist downloader with multi-track batch extraction, audio/video selection, and improved stability.',
+    releaseNotes: 'Added Browser Cookies Auto-Importer, Lossless Frame Grabber, Speed & Audio Booster, Turbo Streams, and Smart Storage Sorter.',
     releaseDate: '2026-09-20',
     mandatory: false
   });
