@@ -911,26 +911,46 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title }) {
         });
       });
     } else {
-      // Remote URL: use yt-dlp to get direct stream link
-      const pyArgs = ['-m', 'yt_dlp', '--no-warnings', '-g', '-f', 'best[ext=mp4]/best', source];
-      execFile('python', pyArgs, (ytErr, stdout) => {
+      // Remote URL: use yt-dlp to extract highest quality video stream link
+      const platform = detectPlatform(source);
+      const pyArgs = [
+        '-m', 'yt_dlp',
+        '--js-runtimes', 'node',
+        '--no-warnings',
+        '-g',
+        '-f', 'bestvideo/best'
+      ];
+
+      if (platform !== 'youtube') {
+        pyArgs.push(
+          '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          '--referer', 'https://www.google.com/'
+        );
+      }
+      pyArgs.push(source);
+
+      execFile('python', pyArgs, { maxBuffer: 10 * 1024 * 1024 }, (ytErr, stdout, stderr) => {
         const directUrl = (stdout || '').trim().split('\n')[0];
         if (ytErr || !directUrl || !directUrl.startsWith('http')) {
-          return reject(new Error('Could not fetch stream URL for remote frame capture'));
+          console.error('Frame grab yt-dlp stream error:', stderr || ytErr?.message);
+          return reject(new Error('Could not fetch stream URL for remote frame capture: ' + (stderr || ytErr?.message || 'Unknown error')));
         }
 
         const args = [
           '-y',
           '-ss', cleanSs,
+          '-reconnect', '1',
+          '-reconnect_streamed', '1',
+          '-reconnect_delay_max', '5',
           '-i', directUrl,
           '-vframes', '1',
           '-q:v', '2',
           outputPath
         ];
 
-        execFile(ffmpegPath, args, (frameErr) => {
+        execFile(ffmpegPath, args, { maxBuffer: 10 * 1024 * 1024 }, (frameErr) => {
           if (frameErr) return reject(new Error('Remote frame grab failed: ' + frameErr.message));
-          if (!fs.existsSync(outputPath)) return reject(new Error('Frame could not be captured'));
+          if (!fs.existsSync(outputPath)) return reject(new Error('Frame could not be captured at this timestamp'));
 
           resolve({
             success: true,
