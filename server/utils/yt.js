@@ -216,7 +216,7 @@ function getMediaInfo(url) {
     ];
 
     if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=web,default');
+      args.push('--extractor-args', 'youtube:player_client=tv_embedded,web,default');
     } else {
       args.push(
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -424,7 +424,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     }
 
     if (platform === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android,web');
+      args.push('--extractor-args', 'youtube:player_client=tv_embedded,web,default');
     } else {
       args.push(
         '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
