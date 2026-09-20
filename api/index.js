@@ -18,8 +18,8 @@ const verifyAppSecret = (req, res, next) => {
 
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: process.env.LATEST_VERSION || '1.3.5',
-    currentVersion: '1.3.5',
+    latestVersion: process.env.LATEST_VERSION || '1.3.6',
+    currentVersion: '1.3.6',
     downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
     releaseNotes: 'Added Converter Studio with 9:16 Reels smart canvas and universal format transcoder.',
     releaseDate: '2026-09-20',

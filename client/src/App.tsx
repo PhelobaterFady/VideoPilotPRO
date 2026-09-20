@@ -30,8 +30,8 @@ export const isElectronApp = (): boolean => {
 };
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.3.5';
-const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
+const CURRENT_VERSION = '1.3.6';
+const API_BASE_URL = typeof window !== 'undefined' && (window.location.protocol.startsWith('file') || isElectronApp()) ? 'http://localhost:5000' : '';
 
 function isVersionNewer(latest?: string, current: string = CURRENT_VERSION): boolean {
   if (!latest || !current) return false;

@@ -44,8 +44,13 @@ try {
 // Embedded Express backend server safely initialized
 try {
   require('../server/index.js');
+  console.log('[Desktop] Embedded backend server initialized successfully');
 } catch (err) {
-  console.error('Failed to start embedded backend server:', err);
+  console.error('[Desktop] CRITICAL: Failed to start embedded backend server:', err);
+  try {
+    const logPath = path.join(app.getPath('userData'), 'server-error.log');
+    fs.appendFileSync(logPath, `${new Date().toISOString()} - Backend start failure:\n${err.stack || err.message}\n`);
+  } catch (e) {}
 }
 
 let mainWindow;

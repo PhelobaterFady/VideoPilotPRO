@@ -7,7 +7,7 @@ interface StatusBarProps {
   version?: string;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ downloadPath, activeCount, version = '1.3.5' }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ downloadPath, activeCount, version = '1.3.6' }) => {
   return (
     <footer className="h-7 bg-[#07090e] border-t border-[rgba(255,255,255,0.06)] px-4 flex items-center justify-between text-[11px] text-[rgba(240,244,248,0.5)] select-none z-30 font-mono">
       <div className="flex items-center gap-4">
