@@ -469,8 +469,38 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       }
     }
 
-    const outputPath = path.join(outputDir, '%(title)s.%(ext)s').replace(/\\/g, '/');
+    // Sanitize Windows invalid filename characters: < > : " / \ | ? *
+    const sanitizeFilename = (name) => {
+      return (name || '').replace(/[<>:"/\\|?*]/g, '_').trim();
+    };
+
+    const isClipped = (clipStart && typeof clipStart === 'string' && clipStart.trim() !== '') ||
+                      (clipEnd && typeof clipEnd === 'string' && clipEnd.trim() !== '');
+
+    const targetExt = isAudio || format === 'audio-best' ? 'mp3' : (format === 'audio-m4a' ? 'm4a' : 'mp4');
+    let baseFileName = title && title.trim() !== '' ? sanitizeFilename(title) : '%(title)s';
+
+    // If trimmed/clipped, append distinct section tag so it never collides with the full video
+    if (isClipped) {
+      const sTag = (clipStart && typeof clipStart === 'string' && clipStart.trim() !== '') ? clipStart.trim().replace(/[:.]/g, '-') : '0';
+      const eTag = (clipEnd && typeof clipEnd === 'string' && clipEnd.trim() !== '') ? clipEnd.trim().replace(/[:.]/g, '-') : 'End';
+      baseFileName += ` [Clip ${sTag}-${eTag}]`;
+    }
+
+    // Smart unique auto-numbering: If file already exists in outputDir, automatically increment filename (e.g. Song (1).mp4)
+    if (title && title.trim() !== '' && fs.existsSync(outputDir)) {
+      let candidate = `${baseFileName}.${targetExt}`;
+      let counter = 1;
+      while (fs.existsSync(path.join(outputDir, candidate))) {
+        candidate = `${baseFileName} (${counter}).${targetExt}`;
+        counter++;
+      }
+      baseFileName = candidate.replace(new RegExp(`\\.${targetExt}$`), '');
+    }
+
+    const outputPath = path.join(outputDir, `${baseFileName}.%(ext)s`).replace(/\\/g, '/');
     args.push('-o', outputPath);
+    args.push('--force-overwrites');
     args.push(url);
 
     console.log(`Starting download [LimitRate: ${limitRate || 'Unlimited'}]: ${url} -> ${outputPath}`);
@@ -547,7 +577,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
         }
 
         if (!resolvedPath) {
-          resolvedPath = path.resolve(outputPath.replace('%(title)s', title).replace('%(ext)s', isAudio ? 'mp3' : 'mp4'));
+          resolvedPath = path.resolve(path.join(outputDir, `${baseFileName}.${targetExt}`));
         }
 
         console.log(`Download completed successfully. Local PC file: ${resolvedPath}`);
