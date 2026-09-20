@@ -14,7 +14,8 @@
     "build": "npm --prefix client install && npm --prefix client run build",
     "start": "node server/index.js",
     "desktop": "electron desktop/main.js",
-    "build:exe": "npm run build:client && electron-builder --win"
+    "build:exe": "npm run build:client && electron-builder --win",
+    "release": "node scripts/release.js"
   },
   "build": {
     "appId": "com.videopilot.pro",
