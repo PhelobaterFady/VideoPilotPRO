@@ -4,9 +4,10 @@ import { HardDrive, DownloadCloud } from 'lucide-react';
 interface StatusBarProps {
   downloadPath: string;
   activeCount: number;
+  version?: string;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ downloadPath, activeCount }) => {
+export const StatusBar: React.FC<StatusBarProps> = ({ downloadPath, activeCount, version = '1.3.1' }) => {
   return (
     <footer className="h-7 bg-[#07090e] border-t border-[rgba(255,255,255,0.06)] px-4 flex items-center justify-between text-[11px] text-[rgba(240,244,248,0.5)] select-none z-30 font-mono">
       <div className="flex items-center gap-4">
@@ -30,7 +31,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ downloadPath, activeCount 
         )}
 
         <span className="text-[rgba(240,244,248,0.35)]">
-          VIDEOPILOT PRO <span className="text-[#00e5ff]">v1.2.0</span>
+          VIDEOPILOT PRO <span className="text-[#00e5ff]">v{version}</span>
         </span>
       </div>
     </footer>

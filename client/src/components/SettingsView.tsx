@@ -41,7 +41,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({
   downloadPath,
   onChangePath,
-  currentVersion = '1.3.0',
+  currentVersion = '1.3.1',
   onCheckUpdate,
   updateStatus,
   onDownloadUpdate,
@@ -613,7 +613,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#00E5FF] animate-pulse flex-shrink-0" />
                     <div>
-                      <span className="font-bold text-white text-sm font-display">New Engine Build (v{updateStatus.latestVersion || '1.3.0'}) Available!</span>
+                      <span className="font-bold text-white text-sm font-display">New Engine Build (v{updateStatus.latestVersion || '1.3.1'}) Available!</span>
                       <p className="text-[11px] text-[#8290A5]">Upgrade to ensure uninterrupted compatibility with YouTube, TikTok, and Instagram.</p>
                     </div>
                   </div>

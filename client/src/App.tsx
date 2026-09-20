@@ -21,7 +21,7 @@ import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformT
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.3.0';
+const CURRENT_VERSION = '1.3.1';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 function isVersionNewer(latest?: string, current: string = CURRENT_VERSION): boolean {
@@ -476,7 +476,7 @@ export function App() {
       try {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.on('update-available', (_: any, info: any) => {
-          const ver = info?.version || '1.2.0';
+          const ver = info?.version || '1.3.1';
           setUpdateInfo({ available: true, version: ver });
           setUpdateStatus({
             checked: true,
@@ -487,7 +487,7 @@ export function App() {
         });
 
         ipcRenderer.on('update-ready', (_: any, info: any) => {
-          const ver = info?.version || '1.2.0';
+          const ver = info?.version || '1.3.1';
           setUpdateInfo({ available: true, version: ver, url: 'ready' });
           setUpdateStatus({
             checked: true,
@@ -1093,7 +1093,7 @@ export function App() {
                   <RefreshCw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold font-display text-white">New Core Firmware Available ({updateInfo.version || 'v1.2.0'})</h4>
+                  <h4 className="text-sm font-bold font-display text-white">New Core Firmware Available ({updateInfo.version || 'v1.3.1'})</h4>
                   <p className="text-xs text-[rgba(240,244,248,0.6)] font-mono">A new optimized extraction core is ready. Update now to ensure full protocol compatibility.</p>
                 </div>
               </div>
@@ -1352,7 +1352,7 @@ export function App() {
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} />
+      <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} version={CURRENT_VERSION} />
     </div>
   );
 }
