@@ -31,6 +31,12 @@ try {
     owner: 'PhelobaterFady',
     repo: 'VideoPilotPRO'
   });
+  if (!app.isPackaged) {
+    try {
+      const pkg = require('../package.json');
+      autoUpdater.currentVersion = pkg.version;
+    } catch (e) {}
+  }
 } catch (e) {
   console.warn('electron-updater not available:', e.message);
 }

@@ -2,31 +2,71 @@ const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-let ffmpegPath = null;
-try {
-  ffmpegPath = require('ffmpeg-static');
-} catch (e) {
-  // Fallback lookups
+function resolveYtDlp() {
+  const candidatePaths = [
+    path.join(process.resourcesPath || '', 'bin', 'yt-dlp.exe'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'bin', 'yt-dlp.exe'),
+    path.join(__dirname, '../../bin/yt-dlp.exe'),
+    path.join(__dirname, '../bin/yt-dlp.exe'),
+    path.join(process.cwd(), 'bin', 'yt-dlp.exe')
+  ];
+
+  for (const p of candidatePaths) {
+    if (p && fs.existsSync(p)) {
+      return { command: p, isPython: false };
+    }
+  }
+
+  return { command: 'python', isPython: true };
 }
 
-if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+function resolveFfmpeg() {
   const candidatePaths = [
+    path.join(process.resourcesPath || '', 'bin', 'ffmpeg.exe'),
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'bin', 'ffmpeg.exe'),
+    path.join(__dirname, '../../bin/ffmpeg.exe'),
+    path.join(__dirname, '../bin/ffmpeg.exe'),
+    path.join(process.cwd(), 'bin', 'ffmpeg.exe'),
     path.join(__dirname, '../node_modules/ffmpeg-static/ffmpeg.exe'),
     path.join(__dirname, '../../server/node_modules/ffmpeg-static/ffmpeg.exe'),
     path.join(__dirname, '../../node_modules/ffmpeg-static/ffmpeg.exe'),
     path.join(process.resourcesPath || '', 'app.asar.unpacked/server/node_modules/ffmpeg-static/ffmpeg.exe'),
     path.join(process.resourcesPath || '', 'app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg.exe')
   ];
+
   for (const p of candidatePaths) {
     if (p && fs.existsSync(p)) {
-      ffmpegPath = p;
-      break;
+      return p;
     }
   }
+
+  try {
+    let p = require('ffmpeg-static');
+    if (typeof p === 'string') {
+      p = p.replace('app.asar', 'app.asar.unpacked');
+      if (fs.existsSync(p)) return p;
+    }
+  } catch (e) {}
+
+  return null;
 }
 
-if (typeof ffmpegPath === 'string') {
-  ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+const ytDlpRunner = resolveYtDlp();
+const ffmpegPath = resolveFfmpeg();
+
+console.log(`[VideoPilot Pro Engine] yt-dlp binary resolved: ${ytDlpRunner.command} (Standalone EXE: ${!ytDlpRunner.isPython})`);
+console.log(`[VideoPilot Pro Engine] ffmpeg binary resolved: ${ffmpegPath || 'NOT FOUND'}`);
+
+function runYtDlp(args, options, callback) {
+  const runner = resolveYtDlp();
+  const finalArgs = runner.isPython ? ['-m', 'yt_dlp', ...args] : args;
+  return execFile(runner.command, finalArgs, options, callback);
+}
+
+function spawnYtDlp(args, options = {}) {
+  const runner = resolveYtDlp();
+  const finalArgs = runner.isPython ? ['-m', 'yt_dlp', ...args] : args;
+  return spawn(runner.command, finalArgs, options);
 }
 
 /**
@@ -211,7 +251,6 @@ function getMediaInfo(url, options = {}) {
     const cookiesFile = options.cookiesFile;
     
     const args = [
-      '-m', 'yt_dlp',
       '--js-runtimes', 'node',
       '-J',
       '--no-warnings'
@@ -243,7 +282,7 @@ function getMediaInfo(url, options = {}) {
 
     args.push(url);
 
-    execFile('python', args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
+    runYtDlp(args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
         const errText = (stderr || error.message || '').toLowerCase();
         console.error(`yt-dlp info error for [${url}]:`, stderr || error.message);
@@ -414,7 +453,6 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   return new Promise((resolve, reject) => {
     const platform = detectPlatform(url);
     const args = [
-      '-m', 'yt_dlp',
       '--js-runtimes', 'node',
       '--newline',
       '--no-warnings',
@@ -586,7 +624,7 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
 
     console.log(`Starting download [LimitRate: ${limitRate || 'Unlimited'}]: ${url} -> ${outputPath}`);
 
-    const proc = spawn('python', args);
+    const proc = spawnYtDlp(args);
     if (onProcessStart && typeof onProcessStart === 'function') {
       onProcessStart(proc);
     }
@@ -697,7 +735,6 @@ function extractTranscript(url, lang = 'en') {
 
     const outPattern = path.join(tempDir, 'sub.%(ext)s').replace(/\\/g, '/');
     const args = [
-      '-m', 'yt_dlp',
       '--js-runtimes', 'node',
       '--skip-download',
       '--write-subs',
@@ -708,7 +745,7 @@ function extractTranscript(url, lang = 'en') {
       url
     ];
 
-    execFile('python', args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
+    runYtDlp(args, { maxBuffer: 15 * 1024 * 1024 }, (error, stdout, stderr) => {
       try {
         if (!fs.existsSync(tempDir)) {
           return reject(new Error('Subtitles extraction failed.'));
@@ -934,7 +971,6 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title, cook
       // Remote URL: use yt-dlp to extract highest quality video stream link
       const platform = detectPlatform(source);
       const pyArgs = [
-        '-m', 'yt_dlp',
         '--js-runtimes', 'node',
         '--no-warnings'
       ];
@@ -959,7 +995,7 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title, cook
       }
       pyArgs.push(source);
 
-      execFile('python', pyArgs, { maxBuffer: 10 * 1024 * 1024 }, (ytErr, stdout, stderr) => {
+      runYtDlp(pyArgs, { maxBuffer: 10 * 1024 * 1024 }, (ytErr, stdout, stderr) => {
         const directUrl = (stdout || '').trim().split('\n')[0];
         if (ytErr || !directUrl || !directUrl.startsWith('http')) {
           console.error('Frame grab yt-dlp stream error:', stderr || ytErr?.message);
@@ -999,7 +1035,6 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title, cook
 function testCookieAuth({ browser, filePath }) {
   return new Promise((resolve) => {
     const args = [
-      '-m', 'yt_dlp',
       '--no-warnings',
       '--simulate',
       '--dump-single-json',
@@ -1020,7 +1055,7 @@ function testCookieAuth({ browser, filePath }) {
     // Fast test against a standard video
     args.push('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 
-    execFile('python', args, { timeout: 15000 }, (err, stdout, stderr) => {
+    runYtDlp(args, { timeout: 15000 }, (err, stdout, stderr) => {
       const errStr = (stderr || err?.message || '').toLowerCase();
       if (errStr.includes('could not copy') || errStr.includes('database')) {
         return resolve({

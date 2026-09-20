@@ -1,6 +1,6 @@
 {
   "name": "videopilot-pro",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "author": "Video Pilot Pro Team",
   "description": "Video Pilot Pro Universal Downloader PC Edition",
   "main": "desktop/main.js",
@@ -23,6 +23,19 @@
     "directories": {
       "output": "dist_installer"
     },
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**",
+      "**/bin/**"
+    ],
     "win": {
       "icon": "desktop/icon.ico",
       "target": [

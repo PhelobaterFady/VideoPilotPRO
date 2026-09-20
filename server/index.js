@@ -54,8 +54,8 @@ function broadcastProgress(data) {
 // Version Endpoint
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: process.env.LATEST_VERSION || '1.3.4',
-    currentVersion: '1.3.4',
+    latestVersion: process.env.LATEST_VERSION || '1.3.5',
+    currentVersion: '1.3.5',
     downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
     releaseNotes: 'Performance enhancements and seamless in-app auto updater.',
     releaseDate: '2026-09-20',
