@@ -94,6 +94,8 @@ execSync('npm --prefix client run build', { stdio: 'inherit', cwd: rootDir });
 // 9. Build installer locally
 if (ghToken) {
   console.log('\n📡 GH_TOKEN detected! Building and publishing directly to GitHub Releases...');
+  process.env.GH_TOKEN = ghToken;
+  process.env.GITHUB_TOKEN = ghToken;
   execSync('npx electron-builder --win --publish always', {
     stdio: 'inherit',
     cwd: rootDir,
