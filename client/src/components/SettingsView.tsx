@@ -41,7 +41,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({
   downloadPath,
   onChangePath,
-  currentVersion = '1.3.1',
+  currentVersion = '1.3.2',
   onCheckUpdate,
   updateStatus,
   onDownloadUpdate,

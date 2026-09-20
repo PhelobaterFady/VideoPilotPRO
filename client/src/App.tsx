@@ -21,7 +21,7 @@ import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformT
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud, CheckCircle2 } from 'lucide-react';
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.3.1';
+const CURRENT_VERSION = '1.3.2';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 function isVersionNewer(latest?: string, current: string = CURRENT_VERSION): boolean {

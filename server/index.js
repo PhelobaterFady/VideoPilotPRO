@@ -87,8 +87,8 @@ const verifyAppSecret = (req, res, next) => {
 // Application Version & Update Endpoint (Hybrid Update Support)
 app.get('/api/version', (req, res) => {
   res.json({
-    latestVersion: process.env.LATEST_VERSION || '1.3.1',
-    currentVersion: '1.3.1',
+    latestVersion: process.env.LATEST_VERSION || '1.3.2',
+    currentVersion: '1.3.2',
     downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
     releaseNotes: 'Added Convertors Studio (Auto 9:16 Shorts/Reels/TikTok smart canvas & universal format transcoder) and engine performance updates.',
     releaseDate: '2026-09-20',
