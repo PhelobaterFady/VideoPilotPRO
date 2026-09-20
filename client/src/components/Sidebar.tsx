@@ -21,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'downloader' as TabType, label: 'Mission Deck', sublabel: 'Direct Downloader', icon: Download },
     { id: 'batch' as TabType, label: 'Batch Queue', sublabel: 'Multi-Link Processing', icon: Layers },
-    { id: 'converters' as TabType, label: 'Convertors', sublabel: '9:16 Reels & Studio Tools', icon: Smartphone },
+    { id: 'converters' as TabType, label: 'Converter', sublabel: '9:16 Reels & Studio Tools', icon: Smartphone },
     { id: 'history' as TabType, label: 'Vault Archive', sublabel: 'Downloaded Media', icon: History },
     { id: 'settings' as TabType, label: 'Flight Config', sublabel: 'Storage & Limiter', icon: Settings },
   ];

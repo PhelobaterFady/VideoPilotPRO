@@ -197,7 +197,7 @@ export const ConvertersView: React.FC<ConvertersViewProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold font-display text-white tracking-tight">Convertors Studio</h2>
+              <h2 className="text-xl font-bold font-display text-white tracking-tight">Converter Studio</h2>
               <span className="px-2.5 py-0.5 rounded-full bg-[#00E5FF]/15 text-[#00E5FF] text-[10px] font-mono font-bold border border-[#00E5FF]/30">
                 PRO REELS & FORMATS
               </span>
