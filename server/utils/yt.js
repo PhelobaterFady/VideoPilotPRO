@@ -394,7 +394,9 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       '--newline',
       '--no-warnings',
       '--windows-filenames',
-      '--continue'
+      '--continue',
+      '--retries', '10',
+      '--fragment-retries', '10'
     ];
 
     // Video Section Trimming / Clipping
