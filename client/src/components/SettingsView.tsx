@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Gauge, ShieldCheck } from 'lucide-react';
+import { Folder, HardDrive, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Gauge, ShieldCheck, Zap, Layers, Tag } from 'lucide-react';
 
 export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
+export type StorageSortMode = 'flat' | 'platform' | 'creator' | 'type';
 
 interface SettingsViewProps {
   downloadPath: string;
@@ -21,6 +22,12 @@ interface SettingsViewProps {
   onSelectTheme?: (theme: ThemeType) => void;
   speedLimit?: string;
   onChangeSpeedLimit?: (limit: string) => void;
+  sortMode?: StorageSortMode;
+  onChangeSortMode?: (mode: StorageSortMode) => void;
+  turboStreams?: number;
+  onChangeTurboStreams?: (streams: number) => void;
+  embedMetadata?: boolean;
+  onChangeEmbedMetadata?: (embed: boolean) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -33,7 +40,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   activeTheme: _activeTheme = 'cyan',
   onSelectTheme: _onSelectTheme,
   speedLimit = 'unlimited',
-  onChangeSpeedLimit
+  onChangeSpeedLimit,
+  sortMode = 'flat',
+  onChangeSortMode,
+  turboStreams = 16,
+  onChangeTurboStreams,
+  embedMetadata = true,
+  onChangeEmbedMetadata
 }) => {
   const [customSpeed, setCustomSpeed] = useState('');
   const [isChecking, setIsChecking] = useState(false);
@@ -100,13 +113,122 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </span>
           <button
             onClick={onChangePath}
-            className={`px-4 py-2.5 rounded-xl text-xs font-display font-bold transition-all shadow-md ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-display font-bold transition-all shadow-md cursor-pointer ${
               isConfigured
                 ? 'bg-[#00E5FF] hover:bg-[#33ebff] text-black shadow-cyan-500/20'
                 : 'bg-[#FFB020] hover:bg-amber-400 text-black shadow-amber-500/30'
             }`}
           >
             {isConfigured ? 'Change Folder' : 'Configure Folder'}
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-Smart Storage Sorter Module */}
+      <div className="cockpit-card p-5 md:p-6 rounded-3xl border border-white/[0.08] shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center border border-[#00E5FF]/20">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-display font-bold text-white">Auto-Smart Storage Sorter</h3>
+                <span className="px-2 py-0.5 rounded-md bg-[#00E676]/20 text-[#00E676] text-[10px] font-mono font-bold border border-[#00E676]/30">
+                  AUTO-ORGANIZER
+                </span>
+              </div>
+              <p className="text-xs text-[#8290A5]">Automatically categorize files into dedicated subfolders on your workstation</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          {[
+            { id: 'flat', label: '📁 Standard Vault', sub: 'Root download folder', desc: 'All files stored together' },
+            { id: 'platform', label: '🌐 By Platform', sub: 'Subfolders by site', desc: '/YouTube, /TikTok, /Instagram' },
+            { id: 'creator', label: '👤 By Creator', sub: 'Subfolders by author', desc: 'Auto-grouped by Channel' },
+            { id: 'type', label: '🎬 By Media Type', sub: 'Subfolders by format', desc: '/Music, /Videos, /Shorts' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onChangeSortMode && onChangeSortMode(item.id as StorageSortMode)}
+              className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                sortMode === item.id ? 'flight-cartridge-active' : 'flight-cartridge'
+              }`}
+            >
+              <div>
+                <div className="text-xs font-bold font-display text-white">{item.label}</div>
+                <div className="text-[11px] font-mono text-[#00E5FF] mt-0.5">{item.sub}</div>
+              </div>
+              <div className="text-[10px] font-mono text-[#8290A5] border-t border-white/5 pt-1.5">{item.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Turbo Multi-Threading & Audio-Visual Engine Module */}
+      <div className="cockpit-card p-5 md:p-6 rounded-3xl border border-white/[0.08] shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center border border-[#00E5FF]/20">
+              <Zap className="w-5 h-5 text-[#00E5FF]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-display font-bold text-white">Turbo Parallel Streams & Metadata</h3>
+                <span className="px-2 py-0.5 rounded-md bg-[#00E5FF]/20 text-[#00E5FF] text-[10px] font-mono font-bold border border-[#00E5FF]/30">
+                  TURBO MATRIX
+                </span>
+              </div>
+              <p className="text-xs text-[#8290A5]">Multi-threaded fragment downloads and ID3 album cover auto-embedding</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          {[
+            { count: 4, label: 'Standard (4 Streams)', sub: 'Low CPU impact' },
+            { count: 8, label: 'High Speed (8 Streams)', sub: 'Fast parallel chunks' },
+            { count: 16, label: '👑 Turbo (16 Streams)', sub: 'Maximum throughput (IDM Style)' }
+          ].map((streamOpt) => (
+            <button
+              key={streamOpt.count}
+              type="button"
+              onClick={() => onChangeTurboStreams && onChangeTurboStreams(streamOpt.count)}
+              className={`p-3.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                turboStreams === streamOpt.count ? 'flight-cartridge-active' : 'flight-cartridge'
+              }`}
+            >
+              <span className="text-xs font-bold font-display text-white">{streamOpt.label}</span>
+              <span className="text-[10px] font-mono text-[#00E5FF]">{streamOpt.sub}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Auto ID3 Embedder Toggle */}
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#07090E] border border-white/[0.08] mt-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-white/5 text-[#00E5FF]">
+              <Tag className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold font-display text-white">Auto-ID3 Metadata & Album Art Embedder</div>
+              <div className="text-[11px] font-mono text-[#8290A5]">Automatically embed high-res cover art, artist, and track title into MP3/M4A</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onChangeEmbedMetadata && onChangeEmbedMetadata(!embedMetadata)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              embedMetadata
+                ? 'bg-[#00E676]/20 text-[#00E676] border border-[#00E676]/40'
+                : 'bg-white/5 text-zinc-500 border border-white/10'
+            }`}
+          >
+            {embedMetadata ? 'ENABLED' : 'DISABLED'}
           </button>
         </div>
       </div>

@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, killProcessTree } = require('./utils/yt');
+const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, compressVideo, grabVideoFrame, killProcessTree } = require('./utils/yt');
 
 let QRCode = null;
 try {
@@ -211,13 +211,46 @@ app.post('/api/batch-info', verifyAppSecret, async (req, res) => {
 // Direct download execution endpoint
 app.post('/api/download', verifyAppSecret, async (req, res) => {
   try {
-    const { id, url, format, audioOnly, title, outputDir, subtitleLang, limitRate, clipStart, clipEnd } = req.body;
+    const {
+      id,
+      url,
+      format,
+      audioOnly,
+      title,
+      outputDir,
+      subtitleLang,
+      limitRate,
+      clipStart,
+      clipEnd,
+      sortMode,
+      turboStreams,
+      embedMetadata,
+      audioBoost,
+      playbackSpeed,
+      uploader
+    } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
 
     const downloadId = id || `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const downloadParams = { url, format, audioOnly: !!audioOnly, title, outputDir, subtitleLang, limitRate, clipStart, clipEnd };
+    const downloadParams = {
+      url,
+      format,
+      audioOnly: !!audioOnly,
+      title,
+      outputDir,
+      subtitleLang,
+      limitRate,
+      clipStart,
+      clipEnd,
+      sortMode: sortMode || 'flat',
+      turboStreams: turboStreams || 16,
+      embedMetadata: embedMetadata !== undefined ? !!embedMetadata : true,
+      audioBoost: audioBoost || 'none',
+      playbackSpeed: playbackSpeed || 1.0,
+      uploader: uploader || ''
+    };
 
     activeDownloads.set(downloadId, {
       id: downloadId,
@@ -229,7 +262,7 @@ app.post('/api/download', verifyAppSecret, async (req, res) => {
 
     broadcastProgress({ id: downloadId, status: 'downloading', percent: 5, speed: 'Connecting...', eta: '--:--' });
 
-    console.log(`Starting download: "${title}" [ID: ${downloadId}, LimitRate: ${limitRate || 'Max'}, Clip: ${clipStart || '0'}-${clipEnd || 'End'}] to: ${outputDir || 'Default'}`);
+    console.log(`Starting download: "${title}" [ID: ${downloadId}, Streams: ${downloadParams.turboStreams}, SpeedRate: ${downloadParams.playbackSpeed}x, Sort: ${downloadParams.sortMode}]`);
 
     const result = await downloadMediaToFile({
       ...downloadParams,
@@ -615,6 +648,44 @@ app.post('/api/save-thumbnail', verifyAppSecret, async (req, res) => {
     return res.json({ success: true, filePath: result.filePath });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Failed to save thumbnail' });
+  }
+});
+
+// ==========================================
+// 📉 Smart Social Media Compressor Endpoint
+// ==========================================
+app.post('/api/tools/compress-video', verifyAppSecret, async (req, res) => {
+  try {
+    const { filePath, targetPreset, customSizeMB, outputDir } = req.body;
+    if (!filePath) {
+      return res.status(400).json({ error: 'File path is required' });
+    }
+
+    console.log(`Starting video compression: "${filePath}" with preset: ${targetPreset || 'whatsapp'}`);
+    const result = await compressVideo({ inputPath: filePath, targetPreset, customSizeMB, outputDir });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Video compression error:', err.message);
+    return res.status(500).json({ error: err.message || 'Video compression failed' });
+  }
+});
+
+// ==========================================
+// 📸 Lossless Photographic Frame Grabber Endpoint
+// ==========================================
+app.post('/api/tools/frame-grab', verifyAppSecret, async (req, res) => {
+  try {
+    const { source, timestamp, outputDir, title } = req.body;
+    if (!source) {
+      return res.status(400).json({ error: 'Source file or URL is required' });
+    }
+
+    console.log(`Snapping frame at [${timestamp || '00:00:01'}] from: ${source}`);
+    const result = await grabVideoFrame({ source, timestamp, outputDir, title });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Frame grab error:', err.message);
+    return res.status(500).json({ error: err.message || 'Frame grab failed' });
   }
 });
 

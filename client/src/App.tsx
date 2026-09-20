@@ -10,11 +10,12 @@ import { BatchDownloader } from './components/BatchDownloader';
 import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
-import type { ThemeType } from './components/SettingsView';
+import type { ThemeType, StorageSortMode } from './components/SettingsView';
 import { ToastContainer } from './components/Toast';
 import type { ToastItem } from './components/Toast';
 import { QrShareModal } from './components/QrShareModal';
 import { TranscriptModal } from './components/TranscriptModal';
+import { MediaCompressorModal } from './components/MediaCompressorModal';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud } from 'lucide-react';
 
@@ -130,6 +131,50 @@ export function App() {
     localStorage.setItem('videopilot_speed_limit', speedLimit);
   }, [speedLimit]);
 
+  // Smart Storage Sorter Mode
+  const [sortMode, setSortMode] = useState<StorageSortMode>(() => {
+    return (localStorage.getItem('videopilot_sort_mode') as StorageSortMode) || 'flat';
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_sort_mode', sortMode);
+  }, [sortMode]);
+
+  // Turbo Multi-Threading Streams (4, 8, 16)
+  const [turboStreams, setTurboStreams] = useState<number>(() => {
+    const s = localStorage.getItem('videopilot_turbo_streams');
+    return s ? parseInt(s, 10) : 16;
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_turbo_streams', String(turboStreams));
+  }, [turboStreams]);
+
+  // Auto-ID3 Metadata & Album Art Embedder
+  const [embedMetadata, setEmbedMetadata] = useState<boolean>(() => {
+    return localStorage.getItem('videopilot_embed_metadata') !== 'false';
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_embed_metadata', String(embedMetadata));
+  }, [embedMetadata]);
+
+  // Media Compressor Modal State
+  const [compressModalData, setCompressModalData] = useState<{
+    isOpen: boolean;
+    filePath: string;
+    fileName: string;
+  }>({
+    isOpen: false,
+    filePath: '',
+    fileName: ''
+  });
+
+  const handleOpenCompress = (filePath: string, fileName: string) => {
+    setCompressModalData({
+      isOpen: true,
+      filePath,
+      fileName
+    });
+  };
+
   // QR Share Modal State
   const [qrModalData, setQrModalData] = useState<{
     isOpen: boolean;
@@ -203,6 +248,37 @@ export function App() {
       addToast('success', `Saved HD Poster to: ${json.filePath}`, 'Poster Saved');
     } catch (err: any) {
       addToast('error', err.message || 'Failed to save poster', 'Poster Error');
+    }
+  };
+
+  // Lossless Photographic Frame Grabber
+  const handleSnapFrame = async (timestamp: string = '00:00:05', title: string) => {
+    if (!downloadPath || downloadPath.trim() === '') {
+      addToast('error', 'Please configure your download folder in Settings & Storage first!', 'Save Location Missing');
+      return;
+    }
+    try {
+      addToast('info', `Snapping lossless PNG frame at ${timestamp}...`, 'Frame Grabber');
+      const targetSource = currentMedia?.webpage_url || currentMedia?.id || '';
+      const res = await fetch(`${API_BASE_URL}/api/tools/frame-grab`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': APP_SECRET
+        },
+        body: JSON.stringify({
+          source: targetSource,
+          timestamp,
+          outputDir: downloadPath,
+          title: title || currentMedia?.title || 'Frame'
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Failed to capture frame');
+      addToast('success', `Saved lossless frame: ${json.fileName}`, 'Frame Captured 📸');
+    } catch (err: any) {
+      addToast('error', err.message || 'Frame grab failed', 'Capture Error');
     }
   };
 
@@ -512,6 +588,9 @@ export function App() {
     clipEnd?: string;
     platform?: PlatformType;
     customThumbnail?: string;
+    audioBoost?: string;
+    playbackSpeed?: number;
+    uploader?: string;
   }
 
   const triggerSingleDownload = async (
@@ -534,6 +613,9 @@ export function App() {
     let clipEnd: string | undefined;
     let platform: PlatformType;
     let customThumbnail: string | undefined;
+    let audioBoost: string | undefined;
+    let playbackSpeed: number | undefined;
+    let uploader: string | undefined;
 
     if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
       url = urlOrOptions.url;
@@ -545,6 +627,9 @@ export function App() {
       clipEnd = urlOrOptions.clipEnd;
       platform = urlOrOptions.platform || ((currentMedia?.platform || 'unknown') as PlatformType);
       customThumbnail = urlOrOptions.customThumbnail;
+      audioBoost = urlOrOptions.audioBoost;
+      playbackSpeed = urlOrOptions.playbackSpeed;
+      uploader = urlOrOptions.uploader || currentMedia?.uploader || '';
     } else {
       url = urlOrOptions;
       format = formatArg || 'best';
@@ -555,6 +640,7 @@ export function App() {
       clipEnd = clipEndArg;
       platform = platformArg || ((currentMedia?.platform || 'unknown') as PlatformType);
       customThumbnail = customThumbnailArg;
+      uploader = currentMedia?.uploader || '';
     }
 
     if (!downloadPath || downloadPath.trim() === '') {
@@ -566,9 +652,16 @@ export function App() {
     const queueId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
     const isClipped = !!((clipStart && clipStart.trim() !== '') || (clipEnd && clipEnd.trim() !== ''));
-    const displayQuality = isClipped
+    let displayQuality = isClipped
       ? `Clip [${clipStart || '0'} -> ${clipEnd || 'End'}] (${isAudio ? 'MP3' : (format.toUpperCase() || 'Best')})`
       : (isAudio ? 'MP3 320kbps' : (format.toUpperCase() || 'Best Quality'));
+
+    if (playbackSpeed && playbackSpeed !== 1.0) {
+      displayQuality += ` • ${playbackSpeed}x Speed`;
+    }
+    if (audioBoost && audioBoost !== 'none') {
+      displayQuality += ` • [${audioBoost}]`;
+    }
 
     const newQueueItem: DownloadQueueItem = {
       id: queueId,
@@ -608,7 +701,13 @@ export function App() {
           subtitleLang,
           limitRate: speedLimit,
           clipStart,
-          clipEnd
+          clipEnd,
+          sortMode,
+          turboStreams,
+          embedMetadata,
+          audioBoost: audioBoost || 'none',
+          playbackSpeed: playbackSpeed || 1.0,
+          uploader: uploader || ''
         })
       });
 
@@ -1017,6 +1116,7 @@ export function App() {
                       onDownload={triggerSingleDownload}
                       onOpenTranscript={handleOpenTranscript}
                       onSavePoster={handleSavePoster}
+                      onSnapFrame={handleSnapFrame}
                     />
                   )}
                 </>
@@ -1031,6 +1131,7 @@ export function App() {
                 onResumeDownload={handleResumeDownload}
                 onCancelDownload={handleCancelDownload}
                 onSendToPhone={handleSendToPhone}
+                onCompressVideo={handleOpenCompress}
               />
             </div>
           )}
@@ -1057,6 +1158,7 @@ export function App() {
                   addToast('info', 'Item removed from download history');
                 }}
                 onSendToPhone={handleSendToPhone}
+                onCompressVideo={handleOpenCompress}
               />
             </div>
           )}
@@ -1077,6 +1179,12 @@ export function App() {
                   setSpeedLimit(lim);
                   addToast('speed', `Speed limit updated to: ${lim === 'unlimited' ? 'Maximum Speed' : lim}`, 'Bandwidth Updated');
                 }}
+                sortMode={sortMode}
+                onChangeSortMode={setSortMode}
+                turboStreams={turboStreams}
+                onChangeTurboStreams={setTurboStreams}
+                embedMetadata={embedMetadata}
+                onChangeEmbedMetadata={setEmbedMetadata}
               />
             </div>
           )}
@@ -1106,6 +1214,18 @@ export function App() {
           appSecret={APP_SECRET}
         />
       )}
+
+      {/* Smart Social Media Compressor Modal */}
+      <MediaCompressorModal
+        isOpen={compressModalData.isOpen}
+        onClose={() => setCompressModalData(prev => ({ ...prev, isOpen: false }))}
+        filePath={compressModalData.filePath}
+        fileName={compressModalData.fileName}
+        apiBaseUrl={API_BASE_URL}
+        appSecret={APP_SECRET}
+        onOpenFile={handleOpenFile}
+        onShowInFolder={handleShowInFolder}
+      />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 

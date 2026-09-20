@@ -360,6 +360,12 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
   let onProcessStart = null;
   let clipStart = null;
   let clipEnd = null;
+  let sortMode = 'flat';
+  let turboStreams = 16;
+  let embedMetadata = true;
+  let audioBoost = 'none';
+  let playbackSpeed = 1.0;
+  let uploader = '';
 
   if (typeof urlOrOptions === 'object' && urlOrOptions !== null) {
     url = urlOrOptions.url;
@@ -375,6 +381,12 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     onProcessStart = urlOrOptions.onProcessStart;
     clipStart = urlOrOptions.clipStart || null;
     clipEnd = urlOrOptions.clipEnd || null;
+    sortMode = urlOrOptions.sortMode || 'flat';
+    turboStreams = urlOrOptions.turboStreams || 16;
+    embedMetadata = urlOrOptions.embedMetadata !== undefined ? !!urlOrOptions.embedMetadata : true;
+    audioBoost = urlOrOptions.audioBoost || 'none';
+    playbackSpeed = typeof urlOrOptions.playbackSpeed === 'number' ? urlOrOptions.playbackSpeed : (parseFloat(urlOrOptions.playbackSpeed) || 1.0);
+    uploader = urlOrOptions.uploader || '';
   } else {
     url = urlOrOptions;
     format = formatArg || 'best';
@@ -413,14 +425,23 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       }
     }
 
-    // Bandwidth Speed Limiter
+    // Bandwidth Speed Limiter or Turbo Multi-threading Stream Acceleration
     if (limitRate && limitRate !== 'unlimited' && limitRate.trim() !== '') {
       const cleanRate = limitRate.trim().toUpperCase();
-      // If user typed '3' convert to '3M', if '500K' or '2M' leave as is
       const rateVal = /^\d+$/.test(cleanRate) ? `${cleanRate}M` : cleanRate;
       args.push('--limit-rate', rateVal);
     } else {
-      args.push('--concurrent-fragments', '5');
+      const streamCount = String(turboStreams || 16);
+      args.push('--concurrent-fragments', streamCount);
+      args.push('-N', streamCount);
+    }
+
+    // Auto-ID3 Metadata & High-Res Album Art Embedder
+    if (embedMetadata) {
+      args.push('--embed-metadata');
+      if (isAudio || format === 'audio-best') {
+        args.push('--embed-thumbnail');
+      }
     }
 
     if (platform === 'youtube') {
@@ -442,6 +463,31 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       args.push('--ffmpeg-location', ffmpegPath);
     }
 
+    // Audio Booster & Noise Filter / Playback Speed FFmpeg postprocessor args
+    const audioFilters = [];
+    if (audioBoost === '+6dB') audioFilters.push('volume=6dB');
+    else if (audioBoost === '+12dB') audioFilters.push('volume=12dB');
+    else if (audioBoost === 'denoise') audioFilters.push('afftdn=nf=-25');
+    else if (audioBoost === '+6dB_denoise') audioFilters.push('volume=6dB', 'afftdn=nf=-25');
+
+    if (playbackSpeed && playbackSpeed !== 1.0) {
+      audioFilters.push(`atempo=${playbackSpeed}`);
+    }
+
+    if (hasFfmpeg) {
+      const postArgs = [];
+      if (playbackSpeed && playbackSpeed !== 1.0 && !isAudio && format !== 'audio-best') {
+        const vPts = (1 / playbackSpeed).toFixed(4);
+        postArgs.push(`-filter:v setpts=${vPts}*PTS`);
+      }
+      if (audioFilters.length > 0) {
+        postArgs.push(`-filter:a "${audioFilters.join(',')}"`);
+      }
+      if (postArgs.length > 0) {
+        args.push('--postprocessor-args', `ffmpeg:${postArgs.join(' ')}`);
+      }
+    }
+
     if (isAudio || format === 'audio-best') {
       if (hasFfmpeg) {
         args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
@@ -460,6 +506,21 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
         args.push('--merge-output-format', 'mp4');
       }
     }
+
+    // Auto-Smart Storage Sorter: Resolve subdirectory
+    let targetFolder = outputDir;
+    if (sortMode === 'platform') {
+      const platformName = platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : 'Web';
+      targetFolder = path.join(outputDir, platformName);
+    } else if (sortMode === 'creator' && uploader && uploader.trim() !== '') {
+      const cleanCreator = uploader.replace(/[<>:"/\\|?*]/g, '_').trim().slice(0, 40);
+      targetFolder = path.join(outputDir, cleanCreator || 'General');
+    } else if (sortMode === 'type') {
+      const isShortItem = url.includes('/shorts/') || url.includes('/reel/');
+      const typeFolder = isAudio || format === 'audio-best' ? 'Music' : (isShortItem ? 'Shorts' : 'Videos');
+      targetFolder = path.join(outputDir, typeFolder);
+    }
+    outputDir = targetFolder;
 
     if (!fs.existsSync(outputDir)) {
       try {
@@ -702,6 +763,186 @@ async function downloadThumbnailFile(thumbnailUrl, title, outputDir) {
   }
 }
 
+/**
+ * Smart Social Media Video Compressor (WhatsApp, Discord, Email, Custom)
+ */
+function compressVideo({ inputPath, targetPreset = 'whatsapp', customSizeMB, outputDir }) {
+  return new Promise((resolve, reject) => {
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return reject(new Error('Input video file does not exist on disk'));
+    }
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      return reject(new Error('FFmpeg runtime is not available for video compression'));
+    }
+
+    const presetLimits = {
+      whatsapp: 15.0,     // Target 15MB to be safely under WhatsApp 16MB limit
+      discord_free: 7.8,  // Target 7.8MB to be under Discord 8MB free limit
+      discord_nitro: 24.0,// Target 24MB to be under Discord 25MB limit
+      email: 19.0         // Target 19MB to be safely under 20MB attachment limit
+    };
+
+    const targetMB = customSizeMB ? parseFloat(customSizeMB) : (presetLimits[targetPreset] || 15.0);
+    const originalStat = fs.statSync(inputPath);
+    const originalSizeBytes = originalStat.size;
+
+    // 1. Probe duration using FFmpeg
+    execFile(ffmpegPath, ['-i', inputPath], (err, stdout, stderr) => {
+      const outputLog = (stderr || '') + (stdout || '');
+      const durationMatch = outputLog.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}\.\d+)/);
+      
+      let durationSeconds = 60; // fallback
+      if (durationMatch) {
+        const hours = parseFloat(durationMatch[1]);
+        const mins = parseFloat(durationMatch[2]);
+        const secs = parseFloat(durationMatch[3]);
+        durationSeconds = hours * 3600 + mins * 60 + secs;
+      }
+
+      if (durationSeconds <= 0) durationSeconds = 60;
+
+      // 2. Calculate target bitrates (bits = MB * 8 * 1024 * 1024 * 0.94 safety factor)
+      const targetBits = targetMB * 8 * 1024 * 1024 * 0.94;
+      const audioBitrateKbps = durationSeconds > 120 ? 96 : 128;
+      const totalBitrateKbps = Math.floor(targetBits / durationSeconds / 1024);
+      const videoBitrateKbps = Math.max(120, totalBitrateKbps - audioBitrateKbps);
+
+      // Smart downscaling if bitrate is constrained
+      let scaleFilter = "scale='min(1920,iw)':-2";
+      if (videoBitrateKbps < 350) {
+        scaleFilter = "scale='min(640,iw)':-2"; // 480p/360p
+      } else if (videoBitrateKbps < 850) {
+        scaleFilter = "scale='min(1280,iw)':-2"; // 720p
+      }
+
+      const ext = path.extname(inputPath);
+      const baseName = path.basename(inputPath, ext);
+      const outFolder = outputDir || path.dirname(inputPath);
+      if (!fs.existsSync(outFolder)) {
+        fs.mkdirSync(outFolder, { recursive: true });
+      }
+
+      const presetLabel = targetPreset.replace('_', '-').toUpperCase();
+      const outputPath = path.join(outFolder, `${baseName} [${presetLabel} ${Math.round(targetMB)}MB].mp4`);
+
+      const ffmpegArgs = [
+        '-y',
+        '-i', inputPath,
+        '-c:v', 'libx264',
+        '-b:v', `${videoBitrateKbps}k`,
+        '-maxrate', `${Math.round(videoBitrateKbps * 1.35)}k`,
+        '-bufsize', `${Math.round(videoBitrateKbps * 2)}k`,
+        '-vf', scaleFilter,
+        '-c:a', 'aac',
+        '-b:a', `${audioBitrateKbps}k`,
+        '-preset', 'fast',
+        outputPath
+      ];
+
+      execFile(ffmpegPath, ffmpegArgs, { maxBuffer: 10 * 1024 * 1024 }, (compErr) => {
+        if (compErr) {
+          return reject(new Error('Compression process failed: ' + compErr.message));
+        }
+
+        if (!fs.existsSync(outputPath)) {
+          return reject(new Error('Compressed output file was not created.'));
+        }
+
+        const compStat = fs.statSync(outputPath);
+        const compressedSizeBytes = compStat.size;
+        const savingsPercent = Math.max(0, Math.round((1 - (compressedSizeBytes / originalSizeBytes)) * 100));
+
+        resolve({
+          success: true,
+          originalPath: inputPath,
+          outputPath,
+          fileName: path.basename(outputPath),
+          originalSize: formatBytes(originalSizeBytes),
+          compressedSize: formatBytes(compressedSizeBytes),
+          savingsPercent
+        });
+      });
+    });
+  });
+}
+
+/**
+ * Lossless Frame Grabber - Extract exact full-resolution PNG image at timestamp
+ */
+function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title }) {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      return reject(new Error('FFmpeg runtime is not available for frame grabbing'));
+    }
+
+    const outFolder = outputDir || path.join(process.env.USERPROFILE || process.env.HOME || '.', 'Downloads');
+    if (!fs.existsSync(outFolder)) {
+      fs.mkdirSync(outFolder, { recursive: true });
+    }
+
+    const safeTitle = (title || 'Snap')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim()
+      .slice(0, 70);
+
+    const cleanTimestamp = (timestamp || '0').replace(/[:.]/g, '-');
+    const outputPath = path.join(outFolder, `${safeTitle} [Frame ${cleanTimestamp}].png`);
+    const cleanSs = (timestamp || '0').trim();
+
+    // Check if source is a local file on disk
+    if (fs.existsSync(source)) {
+      const args = [
+        '-y',
+        '-ss', cleanSs,
+        '-i', source,
+        '-vframes', '1',
+        '-q:v', '2',
+        outputPath
+      ];
+
+      execFile(ffmpegPath, args, (err) => {
+        if (err) return reject(new Error('Frame grab failed: ' + err.message));
+        if (!fs.existsSync(outputPath)) return reject(new Error('Frame could not be captured at this timestamp'));
+
+        resolve({
+          success: true,
+          filePath: outputPath,
+          fileName: path.basename(outputPath)
+        });
+      });
+    } else {
+      // Remote URL: use yt-dlp to get direct stream link
+      const pyArgs = ['-m', 'yt_dlp', '--no-warnings', '-g', '-f', 'best[ext=mp4]/best', source];
+      execFile('python', pyArgs, (ytErr, stdout) => {
+        const directUrl = (stdout || '').trim().split('\n')[0];
+        if (ytErr || !directUrl || !directUrl.startsWith('http')) {
+          return reject(new Error('Could not fetch stream URL for remote frame capture'));
+        }
+
+        const args = [
+          '-y',
+          '-ss', cleanSs,
+          '-i', directUrl,
+          '-vframes', '1',
+          '-q:v', '2',
+          outputPath
+        ];
+
+        execFile(ffmpegPath, args, (frameErr) => {
+          if (frameErr) return reject(new Error('Remote frame grab failed: ' + frameErr.message));
+          if (!fs.existsSync(outputPath)) return reject(new Error('Frame could not be captured'));
+
+          resolve({
+            success: true,
+            filePath: outputPath,
+            fileName: path.basename(outputPath)
+          });
+        });
+      });
+    }
+  });
+}
+
 function killProcessTree(pid) {
   if (!pid) return;
   try {
@@ -721,5 +962,7 @@ module.exports = {
   downloadMediaToFile,
   extractTranscript,
   downloadThumbnailFile,
+  compressVideo,
+  grabVideoFrame,
   killProcessTree
 };

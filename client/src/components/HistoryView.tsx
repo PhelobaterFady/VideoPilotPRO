@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { HistoryItem } from '../types';
-import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Smartphone, Database, Film, Music } from 'lucide-react';
+import { History, Trash2, Download, ExternalLink, Calendar, Search, Folder, Smartphone, Database, Film, Music, Minimize2 } from 'lucide-react';
 import { PlatformBadge } from './PlatformBadge';
 
 interface HistoryViewProps {
@@ -10,6 +10,7 @@ interface HistoryViewProps {
   onShowInFolder?: (filePath: string) => void;
   onDeleteItem?: (id: string) => void;
   onSendToPhone?: (filePath: string, title: string) => void;
+  onCompressVideo?: (filePath: string, fileName: string) => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
@@ -18,7 +19,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onOpenFile,
   onShowInFolder,
   onDeleteItem,
-  onSendToPhone
+  onSendToPhone,
+  onCompressVideo
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'video' | 'audio' | 'youtube' | 'tiktok'>('all');
@@ -157,10 +159,20 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 {item.filePath && onSendToPhone && (
                   <button
                     onClick={() => onSendToPhone(item.filePath!, item.title)}
-                    className="p-2 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 text-[#00E5FF] border border-[#00E5FF]/30 transition-all"
+                    className="p-2 rounded-xl bg-[#00E5FF]/10 hover:bg-[#00E5FF]/25 text-[#00E5FF] border border-[#00E5FF]/30 transition-all cursor-pointer"
                     title="Send to Phone via Wi-Fi QR"
                   >
                     <Smartphone className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {item.filePath && item.type === 'video' && onCompressVideo && (
+                  <button
+                    onClick={() => onCompressVideo(item.filePath!, item.title)}
+                    className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 transition-all cursor-pointer"
+                    title="Compress for WhatsApp / Discord / Email"
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" />
                   </button>
                 )}
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { DownloadQueueItem } from '../types';
 import { PlatformBadge } from './PlatformBadge';
-import { CheckCircle2, AlertCircle, Loader2, Music, Video, Clock, Folder, ExternalLink, Pause, Play, X, Smartphone, Activity } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, Music, Video, Clock, Folder, ExternalLink, Pause, Play, X, Smartphone, Activity, Minimize2 } from 'lucide-react';
 
 interface ProgressQueueProps {
   queue: DownloadQueueItem[];
@@ -12,6 +12,7 @@ interface ProgressQueueProps {
   onResumeDownload?: (id: string) => void;
   onCancelDownload?: (id: string) => void;
   onSendToPhone?: (filePath: string, title: string) => void;
+  onCompressVideo?: (filePath: string, fileName: string) => void;
 }
 
 export const ProgressQueue: React.FC<ProgressQueueProps> = ({
@@ -22,7 +23,8 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
   onPauseDownload,
   onResumeDownload,
   onCancelDownload,
-  onSendToPhone
+  onSendToPhone,
+  onCompressVideo
 }) => {
   if (queue.length === 0) return null;
 
@@ -189,11 +191,21 @@ export const ProgressQueue: React.FC<ProgressQueueProps> = ({
                     {onSendToPhone && item.filePath && (
                       <button
                         onClick={() => onSendToPhone(item.filePath!, item.title)}
-                        className="px-2.5 py-1 rounded-lg bg-[#00E5FF]/10 hover:bg-[#00E5FF]/20 text-[#00E5FF] text-xs font-mono font-semibold border border-[#00E5FF]/30 transition-all flex items-center gap-1 shadow-sm"
+                        className="px-2.5 py-1 rounded-lg bg-[#00E5FF]/10 hover:bg-[#00E5FF]/20 text-[#00E5FF] text-xs font-mono font-semibold border border-[#00E5FF]/30 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
                         title="Transfer to Phone via Wi-Fi QR"
                       >
                         <Smartphone className="w-3 h-3 text-[#00E5FF]" />
                         <span>Phone</span>
+                      </button>
+                    )}
+                    {onCompressVideo && item.filePath && !item.isAudio && (
+                      <button
+                        onClick={() => onCompressVideo(item.filePath!, item.title)}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-mono font-semibold border border-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                        title="Compress video for WhatsApp / Discord / Email"
+                      >
+                        <Minimize2 className="w-3 h-3" />
+                        <span>Compress</span>
                       </button>
                     )}
                     {onOpenFile && item.filePath && (
