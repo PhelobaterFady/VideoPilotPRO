@@ -19,6 +19,15 @@ import { TranscriptModal } from './components/TranscriptModal';
 import { MediaCompressorModal } from './components/MediaCompressorModal';
 import type { MediaInfo, DownloadQueueItem, HistoryItem, PlaylistItem, PlatformType } from './types';
 import { Sparkles, AlertTriangle, ArrowRight, Folder, RefreshCw, DownloadCloud, ClipboardCopy, X, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { DesktopLandingPage } from './components/DesktopLandingPage';
+
+export const isElectronApp = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  if ((window as any).require) return true;
+  if ((window as any).process && (window as any).process.type === 'renderer') return true;
+  if (navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron')) return true;
+  return false;
+};
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
 const CURRENT_VERSION = '1.3.2';
@@ -52,7 +61,7 @@ const openExternalUrl = async (url: string) => {
   window.open(url, '_blank');
 };
 
-export function App() {
+function AppCockpit() {
   const [activeTab, setActiveTab] = useState<TabType>('downloader');
   const [currentMedia, setCurrentMedia] = useState<MediaInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -1470,6 +1479,14 @@ export function App() {
       <StatusBar downloadPath={downloadPath || 'Not Configured (Set in Settings)'} activeCount={activeDownloads} version={CURRENT_VERSION} />
     </div>
   );
+}
+
+export function App() {
+  const isDesktop = isElectronApp();
+  if (!isDesktop) {
+    return <DesktopLandingPage currentVersion={CURRENT_VERSION} />;
+  }
+  return <AppCockpit />;
 }
 
 export default App;
