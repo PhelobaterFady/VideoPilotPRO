@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, compressVideo, grabVideoFrame, testCookieAuth, killProcessTree } = require('./utils/yt');
+const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, compressVideo, grabVideoFrame, testCookieAuth, reformatToVertical, convertMediaFormat, killProcessTree } = require('./utils/yt');
 
 let QRCode = null;
 try {
@@ -731,6 +731,44 @@ app.post('/api/tools/save-cookie-content', verifyAppSecret, async (req, res) => 
   } catch (err) {
     console.error('Save cookie content error:', err.message);
     return res.status(500).json({ error: err.message || 'Failed to write cookies file' });
+  }
+});
+
+// ==========================================
+// 📱 9:16 Shorts/Reels Canvas Studio Endpoint
+// ==========================================
+app.post('/api/tools/reformat-canvas', verifyAppSecret, async (req, res) => {
+  try {
+    const { inputPath, outputDir, aspect, style, blurRadius, resolution } = req.body;
+    if (!inputPath) {
+      return res.status(400).json({ error: 'Input video path is required' });
+    }
+
+    console.log(`Reformatting canvas to ${aspect || '9:16'} with style ${style || 'blur'} for: "${inputPath}"`);
+    const result = await reformatToVertical({ inputPath, outputDir, aspect, style, blurRadius, resolution });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Canvas reformat error:', err.message);
+    return res.status(500).json({ error: err.message || 'Canvas reformatting failed' });
+  }
+});
+
+// ==========================================
+// 🔄 Universal Format Converter Endpoint
+// ==========================================
+app.post('/api/tools/convert-format', verifyAppSecret, async (req, res) => {
+  try {
+    const { inputPath, outputDir, targetFormat, audioBitrate } = req.body;
+    if (!inputPath) {
+      return res.status(400).json({ error: 'Input media path is required' });
+    }
+
+    console.log(`Converting format to ${targetFormat || 'mp4'} for: "${inputPath}"`);
+    const result = await convertMediaFormat({ inputPath, outputDir, targetFormat, audioBitrate });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Format conversion error:', err.message);
+    return res.status(500).json({ error: err.message || 'Format conversion failed' });
   }
 });
 

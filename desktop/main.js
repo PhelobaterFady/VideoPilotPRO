@@ -304,6 +304,26 @@ ipcMain.handle('select-cookie-file', async () => {
   }
 });
 
+ipcMain.handle('select-video-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Video File for Conversion',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Video & Audio Files', extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'mp3', 'wav', 'm4a', 'flac'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  } catch (err) {
+    console.error('Error selecting video file:', err);
+    return null;
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
 

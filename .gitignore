@@ -11,6 +11,7 @@ release/
 *.exe
 *.zip
 *.7z
+*.rar
 
 # Environment & Logs
 .env

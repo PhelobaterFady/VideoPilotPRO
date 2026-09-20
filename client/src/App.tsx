@@ -9,6 +9,7 @@ import { PlaylistView } from './components/PlaylistView';
 import { BatchDownloader } from './components/BatchDownloader';
 import { ProgressQueue } from './components/ProgressQueue';
 import { HistoryView } from './components/HistoryView';
+import { ConvertersView } from './components/ConvertersView';
 import { SettingsView } from './components/SettingsView';
 import type { ThemeType, StorageSortMode } from './components/SettingsView';
 import { ToastContainer } from './components/Toast';
@@ -1239,6 +1240,23 @@ export function App() {
                 onAnalyzeBatch={handleAnalyzeBatch}
                 isLoading={isLoading}
                 onClose={() => setActiveTab('downloader')}
+              />
+            </div>
+          )}
+
+          {activeTab === 'converters' && (
+            <div className="tab-content-enter">
+              <ConvertersView
+                apiBaseUrl={API_BASE_URL}
+                appSecret={APP_SECRET}
+                downloadPath={downloadPath}
+                historyItems={history}
+                onOpenFile={handleOpenFile}
+                onShowInFolder={handleShowInFolder}
+                onSendToPhone={handleSendToPhone}
+                onPlayVideo={(filePath) => {
+                  if (handleOpenFile) handleOpenFile(filePath);
+                }}
               />
             </div>
           )}

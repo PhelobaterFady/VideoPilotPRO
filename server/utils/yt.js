@@ -1049,6 +1049,181 @@ function testCookieAuth({ browser, filePath }) {
   });
 }
 
+/**
+ * Reformat video to Vertical (9:16 Shorts / Reels / TikTok, 1:1, 4:5) with Blurred Background or Crop
+ */
+function reformatToVertical({ inputPath, outputDir, aspect = '9:16', style = 'blur', blurRadius = 25, resolution = '1080p' }) {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      return reject(new Error('FFmpeg runtime is not available'));
+    }
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return reject(new Error('Source video file not found on disk'));
+    }
+
+    const outFolder = outputDir || path.dirname(inputPath);
+    if (!fs.existsSync(outFolder)) {
+      fs.mkdirSync(outFolder, { recursive: true });
+    }
+
+    let targetW = 1080;
+    let targetH = 1920;
+    let tag = '9-16';
+
+    if (aspect === '1:1') {
+      targetW = 1080;
+      targetH = 1080;
+      tag = '1-1';
+    } else if (aspect === '4:5') {
+      targetW = 1080;
+      targetH = 1350;
+      tag = '4-5';
+    } else {
+      // 9:16
+      if (resolution === '720p') {
+        targetW = 720;
+        targetH = 1280;
+      } else {
+        targetW = 1080;
+        targetH = 1920;
+      }
+      tag = '9-16';
+    }
+
+    const ext = path.extname(inputPath);
+    const baseName = path.basename(inputPath, ext).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
+    const outputPath = path.join(outFolder, `${baseName} [Reels ${tag}].mp4`);
+
+    let filterComplex = '';
+    const blurPower = Math.max(5, Math.min(60, parseInt(blurRadius) || 25));
+
+    if (style === 'blur') {
+      // Cinematic blurred background + sharp centered foreground
+      filterComplex = `[0:v]scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH},boxblur=${blurPower}:5[bg];[0:v]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2`;
+    } else if (style === 'crop') {
+      // Full frame center crop
+      filterComplex = `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH}`;
+    } else {
+      // Black letterbox padding
+      filterComplex = `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease,pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2:black`;
+    }
+
+    const args = [
+      '-y',
+      '-i', inputPath
+    ];
+
+    if (style === 'blur') {
+      args.push('-filter_complex', filterComplex);
+    } else {
+      args.push('-vf', filterComplex);
+    }
+
+    args.push(
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '21',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      outputPath
+    );
+
+    const origStats = fs.statSync(inputPath);
+
+    execFile(ffmpegPath, args, { maxBuffer: 20 * 1024 * 1024 }, (err) => {
+      if (err) {
+        console.error('Reformat error:', err);
+        return reject(new Error('Reformat failed: ' + err.message));
+      }
+      if (!fs.existsSync(outputPath)) {
+        return reject(new Error('Output file was not generated'));
+      }
+
+      const newStats = fs.statSync(outputPath);
+      resolve({
+        success: true,
+        filePath: outputPath,
+        fileName: path.basename(outputPath),
+        originalSize: formatBytes(origStats.size),
+        outputSize: formatBytes(newStats.size),
+        aspect,
+        style
+      });
+    });
+  });
+}
+
+/**
+ * Universal Media Transcoder (MP4, MKV, MOV, WebM, MP3, WAV, FLAC, M4A)
+ */
+function convertMediaFormat({ inputPath, outputDir, targetFormat = 'mp4', audioBitrate = '320k' }) {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      return reject(new Error('FFmpeg runtime is not available'));
+    }
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return reject(new Error('Source file not found on disk'));
+    }
+
+    const outFolder = outputDir || path.dirname(inputPath);
+    if (!fs.existsSync(outFolder)) {
+      fs.mkdirSync(outFolder, { recursive: true });
+    }
+
+    const cleanFmt = targetFormat.toLowerCase().replace('.', '').trim();
+    const isAudioTarget = ['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg'].includes(cleanFmt);
+    const origExt = path.extname(inputPath);
+    const baseName = path.basename(inputPath, origExt).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
+    const outputPath = path.join(outFolder, `${baseName} [Converted].${cleanFmt}`);
+
+    const args = ['-y', '-i', inputPath];
+
+    if (isAudioTarget) {
+      args.push('-vn');
+      if (cleanFmt === 'mp3') {
+        args.push('-c:a', 'libmp3lame', '-b:a', audioBitrate || '320k');
+      } else if (cleanFmt === 'wav') {
+        args.push('-c:a', 'pcm_s16le');
+      } else if (cleanFmt === 'flac') {
+        args.push('-c:a', 'flac');
+      } else if (cleanFmt === 'm4a' || cleanFmt === 'aac') {
+        args.push('-c:a', 'aac', '-b:a', audioBitrate || '256k');
+      }
+    } else {
+      // Video target
+      if (cleanFmt === 'webm') {
+        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-c:a', 'libopus');
+      } else {
+        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '22', '-c:a', 'aac', '-b:a', '192k');
+      }
+    }
+
+    args.push(outputPath);
+
+    const origStats = fs.statSync(inputPath);
+
+    execFile(ffmpegPath, args, { maxBuffer: 20 * 1024 * 1024 }, (err) => {
+      if (err) {
+        console.error('Convert format error:', err);
+        return reject(new Error('Format conversion failed: ' + err.message));
+      }
+      if (!fs.existsSync(outputPath)) {
+        return reject(new Error('Converted output file was not created'));
+      }
+
+      const newStats = fs.statSync(outputPath);
+      resolve({
+        success: true,
+        filePath: outputPath,
+        fileName: path.basename(outputPath),
+        originalSize: formatBytes(origStats.size),
+        outputSize: formatBytes(newStats.size),
+        targetFormat: cleanFmt
+      });
+    });
+  });
+}
+
 function killProcessTree(pid) {
   if (!pid) return;
   try {
@@ -1071,5 +1246,7 @@ module.exports = {
   compressVideo,
   grabVideoFrame,
   testCookieAuth,
+  reformatToVertical,
+  convertMediaFormat,
   killProcessTree
 };
