@@ -30,7 +30,7 @@ export const isElectronApp = (): boolean => {
 };
 
 const APP_SECRET = 'VP_PRO_APP_SECRET_2026';
-const CURRENT_VERSION = '1.3.2';
+const CURRENT_VERSION = '1.3.4';
 const API_BASE_URL = typeof window !== 'undefined' && window.location.protocol.startsWith('file') ? 'http://localhost:5000' : '';
 
 function isVersionNewer(latest?: string, current: string = CURRENT_VERSION): boolean {
@@ -419,23 +419,45 @@ function AppCockpit() {
   };
 
   const handleTriggerUpdate = (downloadUrl?: string) => {
-    if (updateInfo?.url === 'ready') {
-      if ((window as any).require) {
-        try {
-          const { ipcRenderer } = (window as any).require('electron');
+    // 1. Electron In-App Auto-Update Flow
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+
+        // A. If already downloaded and verified, trigger seamless restart
+        if (updateInfo?.url === 'ready' || updateStatus?.downloadUrl === 'ready') {
+          addToast('success', 'Relaunching Video Pilot Pro to apply latest update...', 'Restarting Application');
           ipcRenderer.send('restart-and-update');
           return;
-        } catch (e) {}
+        }
+
+        // B. If download is active, notify user
+        if (updateInfo?.isDownloading) {
+          addToast('info', `Update download is in progress (${updateInfo?.percent || 0}%). The app will restart automatically once finished.`, 'Download Active');
+          return;
+        }
+
+        // C. Trigger in-app background download without opening any browser
+        const targetVersion = updateInfo?.version || updateStatus?.latestVersion || '1.3.4';
+        addToast('info', `Starting in-app download for v${targetVersion}...`, 'Downloading Update');
+        setUpdateInfo({
+          available: true,
+          version: targetVersion,
+          url: 'downloading',
+          isDownloading: true,
+          percent: 0
+        });
+        setUpdateStatus(prev => prev ? ({ ...prev, downloadUrl: 'downloading' }) : null);
+        ipcRenderer.send('start-download-update', { version: targetVersion });
+        return;
+      } catch (e) {
+        console.warn('IPC update trigger error:', e);
       }
     }
-    if ((window as any).require && updateInfo?.isDownloading) {
-      addToast('info', 'Update is downloading automatically in the background. The app will prompt you to restart once ready!', 'Auto-Update in Progress');
-      return;
-    }
-    const targetUrl = downloadUrl || updateStatus?.downloadUrl || updateInfo?.url || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest';
-    if (targetUrl !== 'ready' && targetUrl !== 'downloading') {
-      openExternalUrl(targetUrl);
-    }
+
+    // 2. Web browser only fallback (Only for users accessing via web browser)
+    const targetUrl = downloadUrl || updateStatus?.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest';
+    openExternalUrl(targetUrl);
   };
 
   const checkVersionRealtime = async () => {
@@ -449,7 +471,40 @@ function AppCockpit() {
       }
     }
 
-    // 2. Hybrid API Check (Queries Express / Vercel endpoint)
+    // 2. Query GitHub Releases API directly for live releases
+    try {
+      const ghRes = await fetch('https://api.github.com/repos/PhelobaterFady/VideoPilotPRO/releases/latest');
+      if (ghRes.ok) {
+        const release = await ghRes.json();
+        const latestTag = release.tag_name ? release.tag_name.replace(/^v/, '') : null;
+        if (latestTag) {
+          const isNewer = isVersionNewer(latestTag, CURRENT_VERSION);
+          setUpdateStatus({
+            checked: true,
+            isLatest: !isNewer,
+            latestVersion: latestTag,
+            downloadUrl: release.html_url,
+            releaseNotes: release.body,
+            error: null
+          });
+
+          if (isNewer) {
+            setUpdateInfo(prev => ({
+              available: true,
+              version: latestTag,
+              url: prev?.url === 'ready' ? 'ready' : (prev?.isDownloading ? 'downloading' : undefined),
+              isDownloading: prev?.isDownloading || false,
+              percent: prev?.percent || 0
+            }));
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('GitHub release fetch error:', e);
+    }
+
+    // 3. Hybrid API Check (Queries Express / Vercel endpoint)
     try {
       const res = await fetch(`${API_BASE_URL}/api/version`).catch(() => fetch('/api/version'));
       if (res && res.ok) {
@@ -466,11 +521,13 @@ function AppCockpit() {
           });
 
           if (isNewer) {
-            setUpdateInfo({
+            setUpdateInfo(prev => ({
               available: true,
               version: json.latestVersion,
-              url: json.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
-            });
+              url: prev?.url === 'ready' ? 'ready' : (prev?.isDownloading ? 'downloading' : undefined),
+              isDownloading: prev?.isDownloading || false,
+              percent: prev?.percent || 0
+            }));
           }
           return;
         }
@@ -500,26 +557,26 @@ function AppCockpit() {
       try {
         const { ipcRenderer } = (window as any).require('electron');
         ipcRenderer.on('update-available', (_: any, info: any) => {
-          const ver = info?.version || '1.3.1';
+          const ver = info?.version || '1.3.4';
           setUpdateInfo(prev => ({
             available: true,
             version: ver,
-            url: prev?.url || 'downloading',
-            isDownloading: true,
+            url: prev?.url === 'ready' ? 'ready' : 'downloading',
+            isDownloading: prev?.url !== 'ready',
             percent: prev?.percent || 0
           }));
-          setUpdateStatus({
+          setUpdateStatus(prev => ({
             checked: true,
             isLatest: false,
             latestVersion: ver,
-            downloadUrl: 'downloading'
-          });
+            downloadUrl: prev?.downloadUrl === 'ready' ? 'ready' : 'downloading'
+          }));
         });
 
         ipcRenderer.on('update-download-progress', (_: any, progress: any) => {
           setUpdateInfo(prev => ({
             available: true,
-            version: prev?.version || '1.3.1',
+            version: prev?.version || '1.3.4',
             url: 'downloading',
             isDownloading: true,
             percent: Math.round(progress?.percent || 0),
@@ -530,7 +587,7 @@ function AppCockpit() {
         });
 
         ipcRenderer.on('update-ready', (_: any, info: any) => {
-          const ver = info?.version || '1.3.1';
+          const ver = info?.version || '1.3.4';
           setUpdateInfo({
             available: true,
             version: ver,
@@ -544,20 +601,31 @@ function AppCockpit() {
             latestVersion: ver,
             downloadUrl: 'ready'
           });
-          addToast('success', `Update v${ver} downloaded! Click Restart & Install to apply now.`, 'Update Ready');
+          addToast('success', `Update v${ver} is downloaded and verified! Click "Restart & Apply Update" to complete setup.`, 'Update Ready');
+        });
+
+        ipcRenderer.on('update-error', (_: any, err: any) => {
+          console.warn('Update error event:', err);
+          setUpdateInfo(prev => prev ? ({ ...prev, isDownloading: false }) : null);
         });
 
         ipcRenderer.on('update-check-result', (_: any, result: any) => {
           if (result && result.available && result.version) {
             const isNewer = isVersionNewer(result.version, CURRENT_VERSION);
             if (isNewer) {
-              setUpdateStatus({
+              setUpdateStatus(prev => ({
                 checked: true,
                 isLatest: false,
                 latestVersion: result.version,
-                downloadUrl: 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest'
-              });
-              setUpdateInfo({ available: true, version: result.version });
+                downloadUrl: prev?.downloadUrl || 'ready'
+              }));
+              setUpdateInfo(prev => ({
+                available: true,
+                version: result.version,
+                url: prev?.url || undefined,
+                isDownloading: prev?.isDownloading || false,
+                percent: prev?.percent || 0
+              }));
             }
           }
         });
@@ -1410,6 +1478,7 @@ function AppCockpit() {
                 currentVersion={CURRENT_VERSION}
                 onCheckUpdate={checkVersionRealtime}
                 updateStatus={updateStatus}
+                updateInfo={updateInfo}
                 onDownloadUpdate={handleTriggerUpdate}
                 activeTheme={activeTheme}
                 onSelectTheme={setActiveTheme}

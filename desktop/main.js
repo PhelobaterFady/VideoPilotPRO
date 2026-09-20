@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const os = require('os');
+const { spawn } = require('child_process');
 
 // Ensure the application name is Video Pilot Pro across all system dialogs and task managers
 app.name = 'Video Pilot Pro';
@@ -11,6 +14,7 @@ if (process.platform === 'win32') {
 
 let autoUpdater = null;
 let isUpdateDownloaded = false;
+let directDownloadedInstallerPath = null;
 let tray = null;
 let isQuitting = false;
 
@@ -19,7 +23,14 @@ try {
   autoUpdater = updaterModule.autoUpdater;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.forceDevUpdateConfig = true; // Guarantees updater operates in all environments
+  autoUpdater.forceDevUpdateConfig = !app.isPackaged;
+  autoUpdater.verifyUpdateCodeSignature = false;
+  autoUpdater.logger = console;
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'PhelobaterFady',
+    repo: 'VideoPilotPRO'
+  });
 } catch (e) {
   console.warn('electron-updater not available:', e.message);
 }
@@ -205,9 +216,118 @@ ipcMain.on('check-for-updates', async () => {
   }
 });
 
+function downloadInstallerDirect(version) {
+  return new Promise((resolve, reject) => {
+    const cleanVersion = String(version || '1.3.4').replace(/^v/, '');
+    const fileName = `Video-Pilot-Pro-Setup-${cleanVersion}.exe`;
+    const targetUrl = `https://github.com/PhelobaterFady/VideoPilotPRO/releases/download/v${cleanVersion}/${fileName}`;
+    const destPath = path.join(os.tmpdir(), fileName);
+    console.log(`[UpdateFallback] Downloading installer v${cleanVersion} from: ${targetUrl}`);
+
+    const file = fs.createWriteStream(destPath);
+
+    function fetchUrl(currentUrl, redirectCount = 0) {
+      if (redirectCount > 5) {
+        file.close();
+        fs.unlink(destPath, () => {});
+        return reject(new Error('Too many redirects while downloading update.'));
+      }
+
+      https.get(currentUrl, { headers: { 'User-Agent': 'VideoPilotPro-Updater' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return fetchUrl(res.headers.location, redirectCount + 1);
+        }
+
+        if (res.statusCode !== 200) {
+          file.close();
+          fs.unlink(destPath, () => {});
+          return reject(new Error(`Server returned HTTP ${res.statusCode}`));
+        }
+
+        const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+        let transferred = 0;
+
+        res.on('data', (chunk) => {
+          transferred += chunk.length;
+          const percent = totalBytes > 0 ? Math.round((transferred / totalBytes) * 100) : 50;
+          mainWindow?.webContents.send('update-download-progress', {
+            percent,
+            transferred,
+            total: totalBytes
+          });
+        });
+
+        res.pipe(file);
+
+        file.on('finish', () => {
+          file.close(() => {
+            console.log(`[UpdateFallback] Download complete: ${destPath}`);
+            isUpdateDownloaded = true;
+            directDownloadedInstallerPath = destPath;
+            mainWindow?.webContents.send('update-ready', { version: cleanVersion });
+            resolve(destPath);
+          });
+        });
+      }).on('error', (err) => {
+        file.close();
+        fs.unlink(destPath, () => {});
+        reject(err);
+      });
+    }
+
+    fetchUrl(targetUrl);
+  });
+}
+
+ipcMain.on('start-download-update', async (_event, data) => {
+  const version = data?.version || '1.3.4';
+  let updaterStarted = false;
+
+  if (autoUpdater) {
+    try {
+      console.log('[AutoUpdater] Checking and initiating download...');
+      const checkResult = await autoUpdater.checkForUpdates();
+      if (checkResult && checkResult.downloadPromise) {
+        updaterStarted = true;
+        await checkResult.downloadPromise;
+      } else {
+        await autoUpdater.downloadUpdate();
+        updaterStarted = true;
+      }
+    } catch (e) {
+      console.warn('[AutoUpdater] electron-updater error, falling back to direct download:', e.message);
+    }
+  }
+
+  if (!updaterStarted && !isUpdateDownloaded) {
+    try {
+      console.log('[AutoUpdater] Starting direct download fallback...');
+      await downloadInstallerDirect(version);
+    } catch (err) {
+      console.error('[AutoUpdater] Direct download failed:', err.message);
+      mainWindow?.webContents.send('update-error', { error: err.message });
+    }
+  }
+});
+
 ipcMain.on('restart-and-update', () => {
+  if (directDownloadedInstallerPath && fs.existsSync(directDownloadedInstallerPath)) {
+    console.log('[AutoUpdater] Launching downloaded installer:', directDownloadedInstallerPath);
+    try {
+      spawn(directDownloadedInstallerPath, ['--updated'], {
+        detached: true,
+        stdio: 'ignore'
+      }).unref();
+      isQuitting = true;
+      app.quit();
+      return;
+    } catch (e) {
+      console.error('Failed to spawn downloaded installer:', e);
+    }
+  }
+
   if (autoUpdater && isUpdateDownloaded) {
-    // false = show installation progress if any, true = force relaunch app after install
+    // false = silent/no-prompt, true = force relaunch app after install
     autoUpdater.quitAndInstall(false, true);
   }
 });

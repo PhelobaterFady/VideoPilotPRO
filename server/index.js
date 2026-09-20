@@ -51,6 +51,18 @@ function broadcastProgress(data) {
   }
 }
 
+// Version Endpoint
+app.get('/api/version', (req, res) => {
+  res.json({
+    latestVersion: process.env.LATEST_VERSION || '1.3.4',
+    currentVersion: '1.3.4',
+    downloadUrl: process.env.DOWNLOAD_URL || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest',
+    releaseNotes: 'Performance enhancements and seamless in-app auto updater.',
+    releaseDate: '2026-09-20',
+    mandatory: false
+  });
+});
+
 // Server-Sent Events Endpoint for live percentage, speed & ETA
 app.get('/api/download/progress-stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');

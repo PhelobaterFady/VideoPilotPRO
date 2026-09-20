@@ -17,6 +17,16 @@ interface SettingsViewProps {
     releaseNotes?: string;
     error?: string | null;
   } | null;
+  updateInfo?: {
+    available: boolean;
+    version?: string;
+    url?: string;
+    isDownloading?: boolean;
+    percent?: number;
+    speed?: number;
+    transferred?: number;
+    total?: number;
+  } | null;
   onDownloadUpdate?: (url?: string) => void;
   activeTheme?: ThemeType;
   onSelectTheme?: (theme: ThemeType) => void;
@@ -41,9 +51,10 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({
   downloadPath,
   onChangePath,
-  currentVersion = '1.3.2',
+  currentVersion = '1.3.4',
   onCheckUpdate,
   updateStatus,
+  updateInfo,
   onDownloadUpdate,
   activeTheme: _activeTheme = 'cyan',
   onSelectTheme: _onSelectTheme,
@@ -602,6 +613,58 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   Retry
                 </button>
               </div>
+            ) : updateInfo?.url === 'ready' || updateStatus.downloadUrl === 'ready' ? (
+              <div className="p-4 rounded-2xl border bg-[#00E676]/10 border-[#00E676]/40 text-white text-xs font-medium space-y-3 shadow-[0_0_25px_rgba(0,230,118,0.15)]">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#00E676]/20 text-[#00E676] flex items-center justify-center border border-[#00E676]/30 flex-shrink-0">
+                      <Sparkles className="w-5 h-5 fill-[#00E676]" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-white text-sm font-display">
+                        Engine Update (v{updateInfo?.version || updateStatus.latestVersion}) Ready to Install!
+                      </span>
+                      <p className="text-[11px] text-[#00E676]/80 font-mono">
+                        ✓ Downloaded and verified. Click below to restart and apply update immediately.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (onDownloadUpdate) onDownloadUpdate('ready');
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00E676] to-[#00C853] text-[#07090E] font-display font-bold text-xs shadow-[0_0_20px_rgba(0,230,118,0.4)] hover:brightness-110 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 fill-black" />
+                    <span>Restart & Apply Update</span>
+                  </button>
+                </div>
+              </div>
+            ) : updateInfo?.isDownloading ? (
+              <div className="p-4 rounded-2xl border bg-gradient-to-r from-cyan-950/40 to-blue-950/40 border-[#00E5FF]/40 text-cyan-200 text-xs font-medium space-y-3 shadow-lg">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="w-5 h-5 text-[#00E5FF] animate-spin flex-shrink-0" />
+                    <div>
+                      <span className="font-bold text-white text-sm font-display">
+                        Downloading Engine Update v{updateInfo?.version || updateStatus.latestVersion} ({updateInfo?.percent || 0}%)...
+                      </span>
+                      <p className="text-[11px] text-[#8290A5]">
+                        Downloading in the background. The app will prompt you to restart once ready.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-32 h-2.5 bg-white/10 rounded-full overflow-hidden border border-white/10">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#00E5FF] to-[#00E676] transition-all duration-300"
+                        style={{ width: `${updateInfo?.percent || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-[#00E5FF] font-bold">{updateInfo?.percent || 0}%</span>
+                  </div>
+                </div>
+              </div>
             ) : updateStatus.isLatest ? (
               <div className="p-4 rounded-2xl border bg-[#00E676]/10 border-[#00E676]/30 text-[#00E676] text-xs font-medium flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-[#00E676] flex-shrink-0" />
@@ -613,22 +676,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#00E5FF] animate-pulse flex-shrink-0" />
                     <div>
-                      <span className="font-bold text-white text-sm font-display">New Engine Build (v{updateStatus.latestVersion || '1.3.1'}) Available!</span>
+                      <span className="font-bold text-white text-sm font-display">New Engine Build (v{updateStatus.latestVersion || '1.3.4'}) Available!</span>
                       <p className="text-[11px] text-[#8290A5]">Upgrade to ensure uninterrupted compatibility with YouTube, TikTok, and Instagram.</p>
                     </div>
                   </div>
                   <button
                     onClick={() => {
                       if (onDownloadUpdate) {
-                        onDownloadUpdate(updateStatus.downloadUrl);
-                      } else {
-                        window.open(updateStatus.downloadUrl || 'https://github.com/PhelobaterFady/VideoPilotPRO/releases/latest', '_blank');
+                        onDownloadUpdate();
                       }
                     }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00E5FF] hover:bg-[#33ebff] text-black font-display font-bold text-xs shadow-lg transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00E5FF] hover:bg-[#33ebff] text-black font-display font-bold text-xs shadow-lg transition-all cursor-pointer"
                   >
                     <DownloadCloud className="w-4 h-4" />
-                    <span>Download Package</span>
+                    <span>Install Update (v{updateStatus.latestVersion || '1.3.4'})</span>
                   </button>
                 </div>
               </div>

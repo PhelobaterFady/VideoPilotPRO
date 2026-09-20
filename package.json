@@ -1,6 +1,6 @@
 {
   "name": "videopilot-pro",
-  "version": "1.3.2",
+  "version": "1.3.4",
   "author": "Video Pilot Pro Team",
   "description": "Video Pilot Pro Universal Downloader PC Edition",
   "main": "desktop/main.js",
@@ -37,6 +37,7 @@
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
+      "artifactName": "Video-Pilot-Pro-Setup-${version}.${ext}",
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
