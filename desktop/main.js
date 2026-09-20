@@ -284,6 +284,26 @@ ipcMain.handle('select-folder', async () => {
   }
 });
 
+ipcMain.handle('select-cookie-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Netscape cookies.txt File',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Netscape Cookie Files', extensions: ['txt'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  } catch (err) {
+    console.error('Error selecting cookie file:', err);
+    return null;
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
 

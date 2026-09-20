@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, compressVideo, grabVideoFrame, killProcessTree } = require('./utils/yt');
+const { getMediaInfo, downloadMediaToFile, extractTranscript, downloadThumbnailFile, compressVideo, grabVideoFrame, testCookieAuth, killProcessTree } = require('./utils/yt');
 
 let QRCode = null;
 try {
@@ -166,13 +166,13 @@ app.get('/api/stream', (req, res) => {
 // Single media info extraction endpoint
 app.post('/api/info', verifyAppSecret, async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, cookiesFromBrowser, cookiesFile } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'Media URL is required' });
     }
 
-    console.log('Fetching media info for:', url);
-    const mediaData = await getMediaInfo(url);
+    console.log('Fetching media info for:', url, cookiesFromBrowser ? `[Cookies: ${cookiesFromBrowser}]` : (cookiesFile ? `[CookieFile: ${cookiesFile}]` : ''));
+    const mediaData = await getMediaInfo(url, { cookiesFromBrowser, cookiesFile });
     return res.json({ success: true, data: mediaData });
   } catch (error) {
     console.error('Error fetching media info:', error.message);
@@ -183,14 +183,14 @@ app.post('/api/info', verifyAppSecret, async (req, res) => {
 // Batch media info extraction endpoint
 app.post('/api/batch-info', verifyAppSecret, async (req, res) => {
   try {
-    const { urls } = req.body;
+    const { urls, cookiesFromBrowser, cookiesFile } = req.body;
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return res.status(400).json({ error: 'List of URLs is required' });
     }
 
     console.log(`Processing batch of ${urls.length} links...`);
     const results = await Promise.allSettled(
-      urls.map(url => getMediaInfo(url.trim()))
+      urls.map(url => getMediaInfo(url.trim(), { cookiesFromBrowser, cookiesFile }))
     );
 
     const formatted = results.map((res, index) => {
@@ -227,7 +227,9 @@ app.post('/api/download', verifyAppSecret, async (req, res) => {
       embedMetadata,
       audioBoost,
       playbackSpeed,
-      uploader
+      uploader,
+      cookiesFromBrowser,
+      cookiesFile
     } = req.body;
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
@@ -249,7 +251,9 @@ app.post('/api/download', verifyAppSecret, async (req, res) => {
       embedMetadata: embedMetadata !== undefined ? !!embedMetadata : true,
       audioBoost: audioBoost || 'none',
       playbackSpeed: playbackSpeed || 1.0,
-      uploader: uploader || ''
+      uploader: uploader || '',
+      cookiesFromBrowser: cookiesFromBrowser || 'none',
+      cookiesFile: cookiesFile || null
     };
 
     activeDownloads.set(downloadId, {
@@ -675,17 +679,58 @@ app.post('/api/tools/compress-video', verifyAppSecret, async (req, res) => {
 // ==========================================
 app.post('/api/tools/frame-grab', verifyAppSecret, async (req, res) => {
   try {
-    const { source, timestamp, outputDir, title } = req.body;
+    const { source, timestamp, outputDir, title, cookiesFromBrowser, cookiesFile } = req.body;
     if (!source) {
       return res.status(400).json({ error: 'Source file or URL is required' });
     }
 
     console.log(`Snapping frame at [${timestamp || '00:00:01'}] from: ${source}`);
-    const result = await grabVideoFrame({ source, timestamp, outputDir, title });
+    const result = await grabVideoFrame({ source, timestamp, outputDir, title, cookiesFromBrowser, cookiesFile });
     return res.json({ success: true, ...result });
   } catch (err) {
     console.error('Frame grab error:', err.message);
     return res.status(500).json({ error: err.message || 'Frame grab failed' });
+  }
+});
+
+// ==========================================
+// 🔐 Browser Cookies & Session Authenticator
+// ==========================================
+app.post('/api/tools/test-cookies', verifyAppSecret, async (req, res) => {
+  try {
+    const { browser, filePath } = req.body;
+    console.log(`Testing cookie session auth: [Browser: ${browser || 'none'}, File: ${filePath || 'none'}]`);
+    const result = await testCookieAuth({ browser, filePath });
+    return res.json(result);
+  } catch (err) {
+    console.error('Cookie test error:', err.message);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to verify cookies' });
+  }
+});
+
+app.post('/api/tools/save-cookie-content', verifyAppSecret, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || typeof content !== 'string' || content.trim() === '') {
+      return res.status(400).json({ error: 'Cookie content is empty' });
+    }
+
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    const targetPath = path.join(dataDir, 'cookies.txt');
+    fs.writeFileSync(targetPath, content.trim(), 'utf8');
+
+    return res.json({
+      success: true,
+      filePath: targetPath,
+      message: 'cookies.txt saved successfully into application storage!'
+    });
+  } catch (err) {
+    console.error('Save cookie content error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to write cookies file' });
   }
 });
 

@@ -204,9 +204,11 @@ function parseAvailableSubtitles(data) {
 /**
  * Get detailed media information using yt-dlp
  */
-function getMediaInfo(url) {
+function getMediaInfo(url, options = {}) {
   return new Promise((resolve, reject) => {
     const platform = detectPlatform(url);
+    const cookiesFromBrowser = options.cookiesFromBrowser;
+    const cookiesFile = options.cookiesFile;
     
     const args = [
       '-m', 'yt_dlp',
@@ -214,6 +216,13 @@ function getMediaInfo(url) {
       '-J',
       '--no-warnings'
     ];
+
+    // Browser Cookies / Session Auth
+    if (cookiesFile && fs.existsSync(cookiesFile)) {
+      args.push('--cookies', cookiesFile);
+    } else if (cookiesFromBrowser && cookiesFromBrowser !== 'none') {
+      args.push('--cookies-from-browser', cookiesFromBrowser);
+    }
 
     if (platform === 'youtube') {
       args.push('--extractor-args', 'youtube:player_client=tv_embedded,web,default');
@@ -387,6 +396,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     audioBoost = urlOrOptions.audioBoost || 'none';
     playbackSpeed = typeof urlOrOptions.playbackSpeed === 'number' ? urlOrOptions.playbackSpeed : (parseFloat(urlOrOptions.playbackSpeed) || 1.0);
     uploader = urlOrOptions.uploader || '';
+    cookiesFromBrowser = urlOrOptions.cookiesFromBrowser || 'none';
+    cookiesFile = urlOrOptions.cookiesFile || null;
   } else {
     url = urlOrOptions;
     format = formatArg || 'best';
@@ -396,6 +407,8 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
     onProgress = onProgressArg;
     onComplete = onCompleteArg;
     onError = onErrorArg;
+    cookiesFromBrowser = 'none';
+    cookiesFile = null;
   }
 
   return new Promise((resolve, reject) => {
@@ -410,6 +423,13 @@ function downloadMediaToFile(urlOrOptions, formatArg, isAudioArg, titleArg, outp
       '--retries', '10',
       '--fragment-retries', '10'
     ];
+
+    // Browser Cookies / Session Auth
+    if (cookiesFile && fs.existsSync(cookiesFile)) {
+      args.push('--cookies', cookiesFile);
+    } else if (cookiesFromBrowser && cookiesFromBrowser !== 'none') {
+      args.push('--cookies-from-browser', cookiesFromBrowser);
+    }
 
     // Video Section Trimming / Clipping
     if ((clipStart && typeof clipStart === 'string' && clipStart.trim() !== '') || (clipEnd && typeof clipEnd === 'string' && clipEnd.trim() !== '')) {
@@ -869,7 +889,7 @@ function compressVideo({ inputPath, targetPreset = 'whatsapp', customSizeMB, out
 /**
  * Lossless Frame Grabber - Extract exact full-resolution PNG image at timestamp
  */
-function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title }) {
+function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title, cookiesFromBrowser, cookiesFile }) {
   return new Promise((resolve, reject) => {
     if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
       return reject(new Error('FFmpeg runtime is not available for frame grabbing'));
@@ -916,10 +936,20 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title }) {
       const pyArgs = [
         '-m', 'yt_dlp',
         '--js-runtimes', 'node',
-        '--no-warnings',
+        '--no-warnings'
+      ];
+
+      // Browser Cookies / Session Auth
+      if (cookiesFile && fs.existsSync(cookiesFile)) {
+        pyArgs.push('--cookies', cookiesFile);
+      } else if (cookiesFromBrowser && cookiesFromBrowser !== 'none') {
+        pyArgs.push('--cookies-from-browser', cookiesFromBrowser);
+      }
+
+      pyArgs.push(
         '-g',
         '-f', 'bestvideo/best'
-      ];
+      );
 
       if (platform !== 'youtube') {
         pyArgs.push(
@@ -963,6 +993,62 @@ function grabVideoFrame({ source, timestamp = '00:00:01', outputDir, title }) {
   });
 }
 
+/**
+ * Diagnostic tool to test cookies authentication from a browser or cookies.txt file
+ */
+function testCookieAuth({ browser, filePath }) {
+  return new Promise((resolve) => {
+    const args = [
+      '-m', 'yt_dlp',
+      '--no-warnings',
+      '--simulate',
+      '--dump-single-json',
+      '--playlist-items', '1'
+    ];
+
+    if (filePath && fs.existsSync(filePath)) {
+      args.push('--cookies', filePath);
+    } else if (browser && browser !== 'none') {
+      args.push('--cookies-from-browser', browser);
+    } else {
+      return resolve({
+        success: false,
+        error: 'No valid browser or cookies file selected'
+      });
+    }
+
+    // Fast test against a standard video
+    args.push('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+
+    execFile('python', args, { timeout: 15000 }, (err, stdout, stderr) => {
+      const errStr = (stderr || err?.message || '').toLowerCase();
+      if (errStr.includes('could not copy') || errStr.includes('database')) {
+        return resolve({
+          success: false,
+          error: `Browser database is locked by ${browser}. Please close your browser completely or export a cookies.txt file.`
+        });
+      }
+      if (errStr.includes('could not find')) {
+        return resolve({
+          success: false,
+          error: `Could not find cookies for ${browser}. Verify the browser is installed and used on this computer.`
+        });
+      }
+      if (err) {
+        return resolve({
+          success: false,
+          error: (stderr || err.message).slice(0, 200) || 'Cookie verification failed'
+        });
+      }
+
+      return resolve({
+        success: true,
+        message: `Session verified successfully via ${filePath ? 'Cookies File' : browser.toUpperCase()}!`
+      });
+    });
+  });
+}
+
 function killProcessTree(pid) {
   if (!pid) return;
   try {
@@ -984,5 +1070,6 @@ module.exports = {
   downloadThumbnailFile,
   compressVideo,
   grabVideoFrame,
+  testCookieAuth,
   killProcessTree
 };

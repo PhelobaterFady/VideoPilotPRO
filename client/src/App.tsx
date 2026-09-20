@@ -156,6 +156,95 @@ export function App() {
     localStorage.setItem('videopilot_embed_metadata', String(embedMetadata));
   }, [embedMetadata]);
 
+  // Browser Cookies & Session Authenticator
+  const [cookieSourceType, setCookieSourceType] = useState<'none' | 'browser' | 'file'>(() => {
+    return (localStorage.getItem('videopilot_cookie_type') as 'none' | 'browser' | 'file') || 'none';
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_cookie_type', cookieSourceType);
+  }, [cookieSourceType]);
+
+  const [cookieBrowser, setCookieBrowser] = useState<string>(() => {
+    return localStorage.getItem('videopilot_cookie_browser') || 'edge';
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_cookie_browser', cookieBrowser);
+  }, [cookieBrowser]);
+
+  const [cookieFilePath, setCookieFilePath] = useState<string>(() => {
+    return localStorage.getItem('videopilot_cookie_file') || '';
+  });
+  useEffect(() => {
+    localStorage.setItem('videopilot_cookie_file', cookieFilePath);
+  }, [cookieFilePath]);
+
+  const getActiveCookieParams = () => {
+    if (cookieSourceType === 'browser') {
+      return { cookiesFromBrowser: cookieBrowser, cookiesFile: null };
+    }
+    if (cookieSourceType === 'file' && cookieFilePath) {
+      return { cookiesFromBrowser: 'none', cookiesFile: cookieFilePath };
+    }
+    return { cookiesFromBrowser: 'none', cookiesFile: null };
+  };
+
+  const handleSelectCookieFile = async () => {
+    if ((window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        const selected = await ipcRenderer.invoke('select-cookie-file');
+        if (selected) {
+          setCookieFilePath(selected);
+          setCookieSourceType('file');
+          addToast('success', `Active: ${selected.split(/[\\/]/).pop()}`, 'Cookies File Loaded');
+          return;
+        }
+      } catch (e) {
+        console.warn('IPC select-cookie-file error:', e);
+      }
+    }
+    const manual = prompt('Enter full path to Netscape cookies.txt file:', cookieFilePath || 'C:\\Downloads\\cookies.txt');
+    if (manual) {
+      setCookieFilePath(manual);
+      setCookieSourceType('file');
+      addToast('success', 'Cookies file path registered', 'Cookies Active');
+    }
+  };
+
+  const handleTestCookies = async (): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const params = getActiveCookieParams();
+    const res = await fetch(`${API_BASE_URL}/api/tools/test-cookies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-secret': APP_SECRET
+      },
+      body: JSON.stringify({
+        browser: params.cookiesFromBrowser,
+        filePath: params.cookiesFile
+      })
+    });
+    return await res.json();
+  };
+
+  const handleSaveCookieContent = async (content: string): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+    const res = await fetch(`${API_BASE_URL}/api/tools/save-cookie-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-secret': APP_SECRET
+      },
+      body: JSON.stringify({ content })
+    });
+    const json = await res.json();
+    if (json.success && json.filePath) {
+      setCookieFilePath(json.filePath);
+      setCookieSourceType('file');
+      addToast('success', 'cookies.txt saved and activated!', 'Session Activated');
+    }
+    return json;
+  };
+
   // Media Compressor Modal State
   const [compressModalData, setCompressModalData] = useState<{
     isOpen: boolean;
@@ -270,7 +359,8 @@ export function App() {
           source: targetSource,
           timestamp,
           outputDir: downloadPath,
-          title: title || currentMedia?.title || 'Frame'
+          title: title || currentMedia?.title || 'Frame',
+          ...getActiveCookieParams()
         })
       });
 
@@ -500,6 +590,8 @@ export function App() {
     };
   }, []);
 
+
+
   const handleOpenFile = async (filePath: string) => {
     if (!filePath) return;
     if ((window as any).require) {
@@ -562,7 +654,10 @@ export function App() {
           'Content-Type': 'application/json',
           'x-app-secret': APP_SECRET
         },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({
+          url,
+          ...getActiveCookieParams()
+        })
       });
 
       const json = await res.json();
@@ -707,7 +802,8 @@ export function App() {
           embedMetadata,
           audioBoost: audioBoost || 'none',
           playbackSpeed: playbackSpeed || 1.0,
-          uploader: uploader || ''
+          uploader: uploader || '',
+          ...getActiveCookieParams()
         })
       });
 
@@ -1185,6 +1281,14 @@ export function App() {
                 onChangeTurboStreams={setTurboStreams}
                 embedMetadata={embedMetadata}
                 onChangeEmbedMetadata={setEmbedMetadata}
+                cookieSourceType={cookieSourceType}
+                onChangeCookieSourceType={setCookieSourceType}
+                cookieBrowser={cookieBrowser}
+                onChangeCookieBrowser={setCookieBrowser}
+                cookieFilePath={cookieFilePath}
+                onSelectCookieFile={handleSelectCookieFile}
+                onTestCookies={handleTestCookies}
+                onSaveCookieContent={handleSaveCookieContent}
               />
             </div>
           )}

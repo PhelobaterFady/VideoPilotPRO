@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, HardDrive, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Gauge, ShieldCheck, Zap, Layers, Tag } from 'lucide-react';
+import { Folder, HardDrive, AlertTriangle, CheckCircle, RefreshCw, Sparkles, DownloadCloud, Gauge, ShieldCheck, Zap, Layers, Tag, KeyRound, FileText, Check } from 'lucide-react';
 
 export type ThemeType = 'emerald' | 'violet' | 'cyan' | 'crimson';
 export type StorageSortMode = 'flat' | 'platform' | 'creator' | 'type';
@@ -28,6 +28,14 @@ interface SettingsViewProps {
   onChangeTurboStreams?: (streams: number) => void;
   embedMetadata?: boolean;
   onChangeEmbedMetadata?: (embed: boolean) => void;
+  cookieSourceType?: 'none' | 'browser' | 'file';
+  onChangeCookieSourceType?: (type: 'none' | 'browser' | 'file') => void;
+  cookieBrowser?: string;
+  onChangeCookieBrowser?: (browser: string) => void;
+  cookieFilePath?: string;
+  onSelectCookieFile?: () => void;
+  onTestCookies?: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  onSaveCookieContent?: (content: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -46,11 +54,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   turboStreams = 16,
   onChangeTurboStreams,
   embedMetadata = true,
-  onChangeEmbedMetadata
+  onChangeEmbedMetadata,
+  cookieSourceType = 'none',
+  onChangeCookieSourceType,
+  cookieBrowser = 'edge',
+  onChangeCookieBrowser,
+  cookieFilePath = '',
+  onSelectCookieFile,
+  onTestCookies,
+  onSaveCookieContent
 }) => {
   const [customSpeed, setCustomSpeed] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [cookieTestLoading, setCookieTestLoading] = useState(false);
+  const [cookieTestResult, setCookieTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null);
+  const [showPasteBox, setShowPasteBox] = useState(false);
+  const [pastedCookies, setPastedCookies] = useState('');
+  const [isSavingCookies, setIsSavingCookies] = useState(false);
   const isConfigured = downloadPath && downloadPath.trim() !== '';
 
   const handleCheck = async () => {
@@ -309,6 +330,225 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-24 px-3 py-1.5 rounded-lg bg-[#0E131F] border border-white/[0.1] text-xs text-white font-mono focus:outline-none focus:border-[#00E5FF]"
             />
             <span className="text-xs font-mono text-[#8290A5]">MB/s per video stream</span>
+          </div>
+        )}
+      </div>
+
+      {/* Session Authentication & Browser Cookies Module */}
+      <div className="cockpit-card p-5 md:p-6 rounded-3xl border border-white/[0.08] shadow-xl space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#00E5FF]/10 text-[#00E5FF] flex items-center justify-center border border-[#00E5FF]/20">
+              <KeyRound className="w-5 h-5 text-[#00E5FF]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-display font-bold text-white">Browser Cookies & Session Bypass</h3>
+                <span className="px-2 py-0.5 rounded-md bg-[#FFB020]/20 text-[#FFB020] text-[10px] font-mono font-bold border border-[#FFB020]/30">
+                  PRIVATE & +18 BYPASS
+                </span>
+              </div>
+              <p className="text-xs text-[#8290A5]">
+                Download age-restricted (+18), YouTube members-only, and private Instagram/Facebook content
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {cookieSourceType !== 'none' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onTestCookies) {
+                    setCookieTestLoading(true);
+                    setCookieTestResult(null);
+                    try {
+                      const res = await onTestCookies();
+                      setCookieTestResult(res);
+                    } catch (e: any) {
+                      setCookieTestResult({ success: false, error: e.message || 'Connection check failed' });
+                    } finally {
+                      setCookieTestLoading(false);
+                    }
+                  }
+                }}
+                disabled={cookieTestLoading}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all bg-[#00E5FF]/15 hover:bg-[#00E5FF]/25 text-[#00E5FF] border border-[#00E5FF]/30 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${cookieTestLoading ? 'animate-spin' : ''}`} />
+                <span>{cookieTestLoading ? 'Verifying...' : 'Test Session'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Source Mode Selector: None, Browser, File */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          {[
+            { id: 'none', label: '❌ Standard (Disabled)', sub: 'Public videos only', desc: 'No browser cookies attached' },
+            { id: 'browser', label: '🌐 Browser Auto-Import', sub: 'Edge, Chrome, Firefox, Brave', desc: 'Direct browser session extraction' },
+            { id: 'file', label: '📄 cookies.txt File', sub: 'Netscape format', desc: 'Guaranteed 100% bypass without locks' }
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => {
+                onChangeCookieSourceType && onChangeCookieSourceType(mode.id as any);
+                setCookieTestResult(null);
+              }}
+              className={`p-3.5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-1.5 cursor-pointer ${
+                cookieSourceType === mode.id ? 'flight-cartridge-active' : 'flight-cartridge'
+              }`}
+            >
+              <div>
+                <div className="text-xs font-bold font-display text-white">{mode.label}</div>
+                <div className="text-[11px] font-mono text-[#00E5FF] mt-0.5">{mode.sub}</div>
+              </div>
+              <div className="text-[10px] font-mono text-[#8290A5] border-t border-white/5 pt-1.5">{mode.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Browser Selector Sub-panel */}
+        {cookieSourceType === 'browser' && (
+          <div className="p-4 rounded-2xl bg-[#07090E] border border-white/[0.08] space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold font-display text-zinc-300">Select Active Browser Profile:</span>
+              <span className="text-[11px] font-mono text-[#8290A5]">Extracts active login cookies automatically</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              {[
+                { id: 'edge', name: 'Microsoft Edge' },
+                { id: 'chrome', name: 'Google Chrome' },
+                { id: 'firefox', name: 'Firefox' },
+                { id: 'brave', name: 'Brave' },
+                { id: 'opera', name: 'Opera' },
+                { id: 'vivaldi', name: 'Vivaldi' }
+              ].map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => {
+                    onChangeCookieBrowser && onChangeCookieBrowser(b.id);
+                    setCookieTestResult(null);
+                  }}
+                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                    cookieBrowser === b.id
+                      ? 'bg-[#00E5FF]/20 border-[#00E5FF]/50 text-[#00E5FF] font-bold shadow-sm shadow-[#00E5FF]/20'
+                      : 'bg-[#0E131F] border-white/5 text-[#8290A5] hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <span className="text-xs font-display">{b.name}</span>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[11px] font-mono text-[#8290A5] bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
+              💡 <span className="text-zinc-300 font-bold">Windows Note:</span> If your selected browser is open and running, its cookie database might be locked. If you see a database lock error during test, close the browser or use the <span className="text-[#00E5FF]">"cookies.txt File"</span> option.
+            </p>
+          </div>
+        )}
+
+        {/* File / Paste Sub-panel */}
+        {cookieSourceType === 'file' && (
+          <div className="p-4 rounded-2xl bg-[#07090E] border border-white/[0.08] space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#00E5FF]" />
+                <span className="text-xs font-bold font-display text-white">Active Cookies File:</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasteBox(!showPasteBox)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-display font-bold bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 transition-all cursor-pointer"
+                >
+                  {showPasteBox ? 'Hide Paste Box' : '📋 Paste Raw Cookies'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onSelectCookieFile}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-display font-bold bg-[#00E5FF] hover:bg-[#33ebff] text-black transition-all cursor-pointer shadow-md shadow-cyan-500/20"
+                >
+                  Browse File (.txt)...
+                </button>
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-[#0E131F] border border-white/10 text-xs font-mono text-zinc-300 truncate">
+              {cookieFilePath || '⚠️ No cookies.txt file selected yet. Click "Browse File" or "Paste Raw Cookies" to activate.'}
+            </div>
+
+            {showPasteBox && (
+              <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-display font-bold text-zinc-300">Paste Netscape Cookies Text (e.g. from "Get cookies.txt LOCALLY"):</span>
+                  <span className="text-[10px] font-mono text-[#8290A5]">Auto-saves to application storage</span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={pastedCookies}
+                  onChange={(e) => setPastedCookies(e.target.value)}
+                  placeholder="# Netscape HTTP Cookie File&#10;.youtube.com&#9;TRUE&#9;/&#9;FALSE&#9;..."
+                  className="w-full p-3 rounded-xl bg-[#07090E] border border-white/10 text-xs text-zinc-300 font-mono focus:outline-none focus:border-[#00E5FF] resize-none"
+                />
+                <button
+                  type="button"
+                  disabled={!pastedCookies.trim() || isSavingCookies}
+                  onClick={async () => {
+                    if (onSaveCookieContent && pastedCookies.trim()) {
+                      setIsSavingCookies(true);
+                      try {
+                        const res = await onSaveCookieContent(pastedCookies.trim());
+                        if (res.success) {
+                          setPastedCookies('');
+                          setShowPasteBox(false);
+                          setCookieTestResult({ success: true, message: 'Saved cookies.txt and activated session!' });
+                        } else {
+                          setCookieTestResult({ success: false, error: res.error || 'Failed to save cookies' });
+                        }
+                      } finally {
+                        setIsSavingCookies(false);
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-display font-bold bg-[#00E676] hover:bg-emerald-400 text-black transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingCookies ? 'Saving...' : 'Save & Activate Cookies'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Test Result Message */}
+        {cookieTestResult && (
+          <div
+            className={`p-3.5 rounded-2xl border text-xs font-medium flex items-center justify-between gap-3 ${
+              cookieTestResult.success
+                ? 'bg-[#00E676]/10 border-[#00E676]/30 text-[#00E676]'
+                : 'bg-[#FFB020]/10 border-[#FFB020]/30 text-amber-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {cookieTestResult.success ? (
+                <CheckCircle className="w-4 h-4 text-[#00E676] flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-[#FFB020] flex-shrink-0" />
+              )}
+              <span>{cookieTestResult.message || cookieTestResult.error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCookieTestResult(null)}
+              className="text-[11px] font-mono opacity-70 hover:opacity-100 cursor-pointer"
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>
